@@ -1,0 +1,6 @@
+# Store as LF and check out as LF on every OS
+* text=auto eol=lf
+
+# Binary assets: never touch
+*.png binary
+*.jpg binary

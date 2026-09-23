@@ -1,0 +1,8 @@
+{
+    // IntelliSense takes flags, defines (e.g. MC_VERSION) and include paths from CMake.
+    // The CMake Tools extension is used when installed; otherwise it falls back to
+    // the compile_commands.json from the debug preset.
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/debug/compile_commands.json",
+    "cmake.useCMakePresets": "always"
+}
