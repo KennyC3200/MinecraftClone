@@ -58,8 +58,8 @@ target_compile_definitions(MinecraftClone PRIVATE
 # Compiler warnings
 # ---------------------------------------------------------------------------
 target_compile_options(MinecraftClone PRIVATE
-    $<$<CXX_COMPILER_ID:MSVC>:/W4 /permissive- /utf-8>
-    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
+    $<$<CXX_COMPILER_ID:MSVC>:/W4 /permissive- /utf-8 /shadow>
+    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -Wshadow>
 )
 
 # ---------------------------------------------------------------------------
@@ -73,11 +73,15 @@ set_target_properties(MinecraftClone PROPERTIES
 set_property(DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT MinecraftClone)
 
 # ---------------------------------------------------------------------------
-# Copy assets next to the executable after every build
+# Copy assets next to the executable on every build
+# A custom target with no output file is always out of date, so this also runs
+# when only assets changed. (A POST_BUILD step would only run when the
+# executable is relinked, leaving edited shaders stale.)
 # ---------------------------------------------------------------------------
-add_custom_command(TARGET MinecraftClone POST_BUILD
+add_custom_target(copy_assets ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_SOURCE_DIR}/assets"
         "$<TARGET_FILE_DIR:MinecraftClone>/assets"
     COMMENT "Copying assets to output directory"
 )
+add_dependencies(MinecraftClone copy_assets)

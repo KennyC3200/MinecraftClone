@@ -1,0 +1,10 @@
+#version 330 core
+out vec4 frag_color;
+
+in vec2 tex_coords;
+
+uniform sampler2D wall_tex;
+
+void main() {
+    frag_color = texture(wall_tex, tex_coords);
+}

@@ -1,5 +1,3 @@
-#pragma once
-
 #include "GLFWContext.hpp"
 
 namespace mcc {

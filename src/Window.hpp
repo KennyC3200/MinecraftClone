@@ -17,6 +17,9 @@ public:
     [[nodiscard]] GLFWwindow* Handle() const & noexcept { return m_handle; }
     GLFWwindow* Handle() const && = delete;
 
+	const int& Width() const noexcept { return m_width; }
+	const int& Height() const noexcept { return m_height; }
+
 private:
     GLFWwindow* m_handle = nullptr;
     int m_width = 0;

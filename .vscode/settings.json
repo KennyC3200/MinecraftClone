@@ -4,5 +4,21 @@
     // the compile_commands.json from the debug preset.
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "C_Cpp.default.compileCommands": "${workspaceFolder}/build/debug/compile_commands.json",
-    "cmake.useCMakePresets": "always"
+    "cmake.useCMakePresets": "always",
+    "C_Cpp.intelliSenseEngine": "disabled",
+
+    // Let clangd ask the MinGW g++ for its target and standard library headers,
+    // so it matches the real build instead of defaulting to MSVC's headers.
+    // (No effect on macOS, where clangd already matches Apple Clang.)
+    "clangd.arguments": [
+        "--query-driver=C:/Strawberry/c/bin/*,C:/msys64/ucrt64/bin/*"
+    ],
+
+    // Indent C++ with tabs while typing (Enter, Tab, Vim's >>), matching .clang-format.
+    // detectIndentation is off so files still indented with spaces don't switch it back.
+    "[cpp]": {
+        "editor.insertSpaces": false,
+        "editor.tabSize": 4,
+        "editor.detectIndentation": false
+    }
 }

@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Minecraft clone in C++20 + OpenGL, built with CMake for Windows 11 and macOS. It is a learning project: the user writes the game code themselves. Default to reviewing and explaining; only write or change files under `src/` when explicitly asked, and when asked for "boilerplate" produce stubs without implementations.
 
+Planned milestones, current progress and design decisions are tracked in `ROADMAP.md`. Keep it up to date when a milestone is finished.
+
 ## Build & run
 
 Presets live in `CMakePresets.json`; all use the Ninja generator and build into `build/<preset>/`.
@@ -17,7 +19,7 @@ cmake --build --preset debug          # build
 ```
 
 - Presets: `debug`, `release` (use whatever compiler is on PATH), and Windows-only `msvc-debug` / `msvc-release` (force `cl`; need Visual Studio or a "Developer PowerShell for VS" shell).
-- The dev machine has no MSVC installed. Its PATH compiler is GCC 13 (Strawberry/MinGW), so only `debug`/`release` work there.
+- On the dev machine, the PATH compiler is GCC 13 (Strawberry/MinGW), which `debug`/`release` use. Visual Studio 2022 (MSVC 14.44) is also installed, for the `msvc-*` presets.
 - The first configure downloads dependencies (needs internet, ~20 s).
 - After switching compilers, delete `build/<preset>` (or pass `--fresh`), because CMake caches the compiler.
 - There are no tests or linters. Verify changes by building, since warnings (`-Wall -Wextra -Wpedantic` / `/W4`) are on for the game target.
@@ -27,14 +29,15 @@ cmake --build --preset debug          # build
 - **Root `CMakeLists.txt`**
   - Globs `src/**/*.cpp|.h|.hpp` with `CONFIGURE_DEPENDS`, so new source files need no CMake edits.
   - Defines `MC_VERSION` (from `project(VERSION)`) and `GLFW_INCLUDE_NONE` on the target.
-  - Copies `assets/` next to the executable after each build.
+  - Copies `assets/` next to the executable on every build, via the always-run `copy_assets` target, so asset-only edits (e.g. shaders) still reach `build/<preset>/bin/assets/`. The game loads assets by relative path, so which copy it reads depends on the working directory.
 - **`external/CMakeLists.txt`**: all third-party deps.
   - `glad` is **vendored** in `external/glad`, generated for OpenGL 4.1 core + `GL_KHR_debug`. The regenerate command is in that file.
   - GLFW 3.4, glm 1.0.1 (header-only) and stb are fetched with `FetchContent`, pinned by URL + SHA256.
   - `stb` is an INTERFACE target. Exactly one `.cpp` must `#define STB_IMAGE_IMPLEMENTATION` before including `<stb_image.h>`; none exists yet.
-- **VS Code IntelliSense**
-  - `.vscode/settings.json` points IntelliSense at CMake Tools / `build/debug/compile_commands.json`.
-  - Macros like `MC_VERSION` only resolve there after a configure.
+- **Editor code analysis: clangd** (the MS C/C++ IntelliSense engine is disabled)
+  - `.clangd` points clangd at `build/debug/compile_commands.json`, so run `cmake --preset debug` first.
+  - `.vscode/settings.json` passes `--query-driver` for the MinGW g++, so clangd uses GCC's headers and target instead of MSVC's.
+  - Macros like `MC_VERSION` only resolve after a configure.
 
 ## Platform constraints
 
@@ -47,6 +50,8 @@ cmake --build --preset debug          # build
 
 - Namespace `mcc`. Headers are `.hpp`, next to their `.cpp` in `src/`, grouped into feature subfolders as the project grows. Include root is `src/`.
 - Members use the `m_` prefix. Braces go on the same line.
+- Indent with tabs (4 wide). Formatting rules live in `.clang-format`, which clangd applies on Format Document and VSCodeVim's `=`.
+- `*` and `&` attach to the type, not the name: `int* a`, `const std::string& name`, `Shader&& other`. Declare one pointer or reference per line, because in `int* a, b;` only `a` is a pointer. (Ref-qualifiers on member functions stay as `Handle() const &`.)
 - Resource owners (window, GL objects) are RAII classes:
   - Copies are deleted; moves are `noexcept`. Use `std::exchange` in the move constructor and member-wise swap in move assignment.
   - The destructor must skip moved-from (null/0) handles.
