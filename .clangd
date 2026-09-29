@@ -1,4 +1,0 @@
-CompileFlags:
-  # CMake writes compile_commands.json into the preset's build folder,
-  # which clangd does not search on its own.
-  CompilationDatabase: build/debug

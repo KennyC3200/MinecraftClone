@@ -13,3 +13,8 @@ compile_commands.json
 
 # macOS
 .DS_Store
+
+CLAUDE.md
+ROADMAP.md
+.clang-format
+.clangd
