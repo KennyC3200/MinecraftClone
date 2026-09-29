@@ -1,6 +1,6 @@
 #pragma once
 
-#include "BufferObj.hpp"
+#include "graphics/BufferObj.hpp"
 
 #include <glad/glad.h>
 

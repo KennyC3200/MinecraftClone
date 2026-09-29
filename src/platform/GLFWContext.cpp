@@ -1,4 +1,7 @@
-#include "GLFWContext.hpp"
+#include "platform/GLFWContext.hpp"
+
+#include <iostream>
+#include <stdexcept>
 
 namespace mcc {
 

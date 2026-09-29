@@ -1,4 +1,4 @@
-#include "VertexArrayObj.hpp"
+#include "graphics/VertexArrayObj.hpp"
 
 #include <utility>
 

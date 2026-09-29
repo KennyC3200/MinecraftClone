@@ -1,4 +1,4 @@
-#include "BufferObj.hpp"
+#include "graphics/BufferObj.hpp"
 
 #include <utility>
 
