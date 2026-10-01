@@ -62,14 +62,22 @@ MeshData BuildChunkMesh(const Chunk& chunk) {
 	for (std::size_t z = 0; z < Chunk::SIZE; z++) {
 		for (std::size_t y = 0; y < Chunk::SIZE; y++) {
 			for (std::size_t x = 0; x < Chunk::SIZE; x++) {
+				glm::ivec3 pos = { x, y, z };
 				BlockId block_id = chunk.GetBlock({x, y, z});
 				BlockInfo block_info = GetBlockInfo(block_id);
-				AppendFace(mesh, {x, y, z}, Face::North, block_info.TileFor(Face::North));
-				AppendFace(mesh, {x, y, z}, Face::South, block_info.TileFor(Face::South));
-				AppendFace(mesh, {x, y, z}, Face::East, block_info.TileFor(Face::East));
-				AppendFace(mesh, {x, y, z}, Face::West, block_info.TileFor(Face::West));
-				AppendFace(mesh, {x, y, z}, Face::Up, block_info.TileFor(Face::Up));
-				AppendFace(mesh, {x, y, z}, Face::Down, block_info.TileFor(Face::Down));
+
+				// Build faces
+				for (std::size_t f = 0; f < static_cast<std::size_t>(Face::Count); f++) {
+					glm::ivec3 neighbour = pos + FACES[f].m_normal;
+
+					// Don't draw face if neighbouring block is solid
+					if (GetBlockInfo(chunk.GetBlock(neighbour)).m_solid) {
+						continue;
+					}
+
+					Face face = static_cast<Face>(f);
+					AppendFace(mesh, {x, y, z}, face, block_info.TileFor(face));
+				}
 			}
 		}
 	}

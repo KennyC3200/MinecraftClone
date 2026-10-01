@@ -85,7 +85,7 @@ void Engine::Update() {
 	m_delta_time = current_frame - m_last_frame;
 	m_last_frame = current_frame;
 
-	m_cam_speed = 5.0f * m_delta_time;
+	m_cam_speed = 20.0f * m_delta_time;
 
 	// INPUT
 	// ---------------------------------------------------------------------------------------------
