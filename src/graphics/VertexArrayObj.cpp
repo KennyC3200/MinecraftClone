@@ -36,4 +36,14 @@ void VertexArrayObj::SetAttribPtr(
     glEnableVertexAttribArray(idx);
 }
 
+void VertexArrayObj::SetAttribIPtr(
+	const VertexBufferObj& VBO, GLuint idx, GLint components, 
+	GLenum type, GLsizei stride, std::size_t offset) 
+{
+	Bind();
+	VBO.Bind();
+	glVertexAttribIPointer(idx, components, type, stride, (void*)(0 + offset));
+    glEnableVertexAttribArray(idx);
+}
+
 }

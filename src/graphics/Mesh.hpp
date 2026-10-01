@@ -11,10 +11,7 @@
 
 namespace mcc {
 
-struct Vertex {
-	glm::vec3 m_pos; 	// location 0
-	glm::vec2 m_uv;  	// location 1
-};
+using Vertex = std::uint32_t;
 
 struct MeshData {
 	std::vector<Vertex> m_vertices;

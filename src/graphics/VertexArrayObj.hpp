@@ -24,6 +24,9 @@ public:
     void SetAttribPtr(
         const VertexBufferObj& VBO, GLuint idx, GLint components, 
         GLenum type, GLsizei stride, std::size_t offset);
+	void SetAttribIPtr(
+        const VertexBufferObj& VBO, GLuint idx, GLint components, 
+        GLenum type, GLsizei stride, std::size_t offset);
 
   private:
     GLuint m_handle = 0;

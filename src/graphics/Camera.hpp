@@ -17,7 +17,7 @@ public:
 	glm::vec3 Right() const { return glm::normalize(glm::cross(m_front, m_up)); }
 
 private:
-	glm::vec3 m_pos{0.0f, 0.0f, 0.0f};
+	glm::vec3 m_pos{8.0f, 10.0f, 40.0f};
 	glm::vec3 m_front{0.0f, 0.0f, -1.0f};
 	glm::vec3 m_up{0.0f, 1.0f,  0.0f};
 	float m_yaw = -90.0f;

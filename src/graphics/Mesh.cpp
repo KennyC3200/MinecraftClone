@@ -7,8 +7,7 @@
 namespace mcc {
 
 Mesh::Mesh() {
-	m_VAO.SetAttribPtr(m_VBO, 0, 3, GL_FLOAT, sizeof(Vertex), 0);
-	m_VAO.SetAttribPtr(m_VBO, 1, 2, GL_FLOAT, sizeof(Vertex), offsetof(Vertex, m_uv));
+	m_VAO.SetAttribIPtr(m_VBO, 0, 1, GL_UNSIGNED_INT, sizeof(Vertex), 0);
 }
 
 Mesh::Mesh(Mesh&& other) noexcept 

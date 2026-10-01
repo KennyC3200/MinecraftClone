@@ -8,30 +8,19 @@ namespace mcc {
 
 namespace {
 
-constexpr int ATLAS_TILES_PER_ROW = 16;
-
-// Every FaceDef lists its corners in the same order, so these apply to every face.
-constexpr std::array<glm::vec2, 4> CORNER_UVS = {
-	glm::vec2(0, 0),
-	glm::vec2(1, 0),
-	glm::vec2(0, 1),
-	glm::vec2(1, 1)
-};
-
 // The face's two counter-clockwise triangles
 constexpr std::array<std::uint32_t, 6> QUAD_INDICES = {
 	2, 0, 1,
 	2, 1, 3
 };
 
-// Convert from tile's local uv to the uv on the atlas
-glm::vec2 AtlasUV(int tile, const glm::vec2& local_uv) {
-	int row = tile / ATLAS_TILES_PER_ROW;
-	int col = tile % ATLAS_TILES_PER_ROW;
-	return glm::vec2(
-		(col + local_uv.x) / static_cast<float>(ATLAS_TILES_PER_ROW), 							// u
-		(ATLAS_TILES_PER_ROW - 1 - row + local_uv.y) / static_cast<float>(ATLAS_TILES_PER_ROW)	// v
-	);
+std::int32_t PackVertex(const glm::ivec3& pos, Face face, int corner, int tile) {
+	return static_cast<std::uint32_t>(pos.x) 
+		| static_cast<std::uint32_t>(pos.y) 	<< 5
+		| static_cast<std::uint32_t>(pos.z) 	<< 10
+		| static_cast<std::uint32_t>(face) 		<< 15
+		| static_cast<std::uint32_t>(corner) 	<< 18
+		| static_cast<std::uint32_t>(tile) 		<< 20;
 }
 
 }
@@ -45,13 +34,10 @@ void AppendFace(MeshData& data, const glm::ivec3& block_pos, Face face, int tile
 		data.m_indices.push_back(offset + idx);
 	}
 
-	// Append vertices to the data.m_vertices
-	// Vertex: position (3 elements), uv (2 elements)
-	for (std::size_t i = 0; i < face_vertices.m_corners.size(); i++) {
-		data.m_vertices.emplace_back(
-			glm::vec3(block_pos) + face_vertices.m_corners[i],
-			AtlasUV(tile, CORNER_UVS[i])
-		);
+	// Append packed vertices
+	for (std::size_t corner = 0; corner < face_vertices.m_corners.size(); corner++) {
+		glm::ivec3 corner_pos = block_pos + glm::ivec3(face_vertices.m_corners[corner]);
+		data.m_vertices.push_back(PackVertex(corner_pos, face, corner, tile));
 	}
 }
 
@@ -66,14 +52,15 @@ MeshData BuildChunkMesh(const Chunk& chunk) {
 				BlockId block_id = chunk.GetBlock({x, y, z});
 				BlockInfo block_info = GetBlockInfo(block_id);
 
+				// If block is not solid
+				if (!block_info.m_solid) continue;
+
 				// Build faces
 				for (std::size_t f = 0; f < static_cast<std::size_t>(Face::Count); f++) {
 					glm::ivec3 neighbour = pos + FACES[f].m_normal;
 
 					// Don't draw face if neighbouring block is solid
-					if (GetBlockInfo(chunk.GetBlock(neighbour)).m_solid) {
-						continue;
-					}
+					if (GetBlockInfo(chunk.GetBlock(neighbour)).m_solid) continue;
 
 					Face face = static_cast<Face>(f);
 					AppendFace(mesh, {x, y, z}, face, block_info.TileFor(face));

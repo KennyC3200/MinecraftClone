@@ -10,7 +10,7 @@ namespace mcc {
 
 Engine::Engine()
     : m_window(1280, 720)
-    , m_shader("assets/shaders/test.vert", "assets/shaders/test.frag") 
+    , m_shader("assets/shaders/chunk.vert", "assets/shaders/chunk.frag") 
     , m_block_atlas("assets/textures/blocks.png", GL_RGBA, GL_RGBA)
 {
 	// Depth
