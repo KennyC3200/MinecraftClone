@@ -1,4 +1,5 @@
 #include "platform/Window.hpp"
+#include "graphics/GLDebug.hpp"
 
 #include <glad/glad.h>
 
@@ -25,6 +26,10 @@ Window::Window(int width, int height)
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE); // required on macOS
 
+#ifndef NDEBUG
+	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+#endif
+
     m_handle = glfwCreateWindow(
         m_width, m_height, 
         "MinecraftClone v" MC_VERSION,
@@ -42,7 +47,9 @@ Window::Window(int width, int height)
         throw std::runtime_error("Failed to load OpenGL functions");
     }
 
-    std::cout << "MinecraftClone v" << MC_VERSION << '\n'
+	EnableGLDebugOutput();
+
+	std::cout << "MinecraftClone v" << MC_VERSION << '\n'
               << "OpenGL " << glGetString(GL_VERSION) << '\n'
               << "Renderer " << glGetString(GL_RENDERER) << std::endl;
 

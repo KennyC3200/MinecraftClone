@@ -1,21 +1,25 @@
 #include "core/Engine.hpp"
+#include "world/ChunkMesher.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include <vector>
-
 namespace mcc {
 
 Engine::Engine()
     : m_window(1280, 720)
     , m_shader("assets/shaders/test.vert", "assets/shaders/test.frag") 
-    , m_wall_tex("assets/textures/wall.jpg", GL_RGB, GL_RGB) 
+    , m_block_atlas("assets/textures/blocks.png", GL_RGBA, GL_RGBA)
 {
 	// Depth
 	glEnable(GL_DEPTH_TEST);
+
+	// Face culling
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	glFrontFace(GL_CCW);
 
     // Blending function
     glEnable(GL_BLEND);
@@ -46,6 +50,17 @@ Engine::Engine()
 	glfwSetKeyCallback(m_window.Handle(), [](GLFWwindow* window, int key, int, int action, int) {
 		static_cast<Engine*>(glfwGetWindowUserPointer(window))->m_input.OnKey(key, action);
 	});
+
+	// Chunk
+	for (std::size_t z = 0; z < Chunk::SIZE; z++) {
+		for (std::size_t y = 0; y < Chunk::SIZE; y++) {
+			for (std::size_t x = 0; x < Chunk::SIZE; x++) {
+				m_chunk.SetBlock({x, y, z}, BlockId::Dirt);
+			}
+		}
+	}
+
+	m_chunk_mesh.Upload(BuildChunkMesh(m_chunk));
 }
 
 void Engine::Run() {
@@ -118,72 +133,11 @@ void Engine::Update() {
 }
 
 void Engine::Render() {
-	std::vector<float> vertices = {
-        // North (-z)
-        0, 0, 0, 	0, 0,
-        1, 0, 0, 	1, 0,
-        0, 1, 0,	0, 1,
-        1, 1, 0,	1, 1,
-
-        // South (+z)
-        0, 0, 1,	0, 0,
-        1, 0, 1,	1, 0,
-        0, 1, 1,	0, 1,
-        1, 1, 1,	1, 1,
-
-        // East (+x)
-        1, 0, 1,	0, 0,
-        1, 0, 0,	1, 0,
-        1, 1, 1,	0, 1,
-        1, 1, 0,	1, 1,
-
-        // West (-x)
-        0, 0, 1,	0, 0,
-        0, 0, 0,	1, 0,
-        0, 1, 1,	0, 1,
-        0, 1, 0,	1, 1,
-
-        // Up (+y)
-        0, 1, 1,	0, 0,
-        1, 1, 1,	1, 0,
-        0, 1, 0,	0, 1,
-        1, 1, 0,	1, 1,
-
-        // Down (-y)
-        0, 0, 1,	0, 0,
-        1, 0, 1,	1, 0,
-        0, 0, 0,	0, 1,
-        1, 0, 0,	1, 1,
-    };
-
-	std::vector<unsigned int> indices;
-	for (int i = 0; i < 6; i++) {
-		unsigned int offset = i * 4;
-		std::vector<unsigned int> _indices = {
-			 2 + offset, 0 + offset, 1 + offset,
-			 2 + offset, 3 + offset, 1 + offset,
-		};
-		indices.insert(indices.end(), _indices.begin(), _indices.end());
-	}
-
-    m_shader.Bind();
-
-    m_shader.SetUniform("wall_tex", 0);
-    m_wall_tex.Bind(0);
-
-    // Attribute pointer
-    m_VAO.SetAttribPtr(m_VBO, 0, 3, GL_FLOAT, 5 * sizeof(float), 0);
-    m_VAO.SetAttribPtr(m_VBO, 1, 2, GL_FLOAT, 5 * sizeof(float), 3 * sizeof(float));
-
-    // Store the vertices data in the buffer
-    m_VBO.SetData(vertices, GL_STATIC_DRAW);
-
-    // Binding the VAO -> Binding the EBO -> EBO is stored on the VAO
-    // Therefore, don't need to rebind the EBO each time
-    m_EBO.SetData(indices, GL_STATIC_DRAW);
+    const glm::vec3 sky_color(0.53f, 0.81f, 0.92f);
+    glClearColor(sky_color.r, sky_color.g, sky_color.b, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glm::mat4 model = glm::mat4(1.0f);
-	model = glm::rotate(model, glm::radians(-55.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	m_shader.SetUniform("model", model);
 
 	glm::mat4 view = m_cam.ViewMat();
@@ -192,11 +146,9 @@ void Engine::Render() {
 	glm::mat4 proj = m_cam.ProjMat((float)m_window.Width() / m_window.Height());
 	m_shader.SetUniform("proj", proj);
 
-    const glm::vec3 sky_color(0.53f, 0.81f, 0.92f);
-    glClearColor(sky_color.r, sky_color.g, sky_color.b, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+	m_block_atlas.Bind(0);
+	m_shader.Bind();
+	m_chunk_mesh.Draw();
 }
 
 void Engine::SwapBuffers() { 

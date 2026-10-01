@@ -4,10 +4,10 @@
 #include "platform/Window.hpp"
 #include "platform/Input.hpp"
 #include "graphics/Shader.hpp"
-#include "graphics/BufferObj.hpp"
-#include "graphics/VertexArrayObj.hpp"
 #include "graphics/Texture.hpp"
 #include "graphics/Camera.hpp"
+#include "graphics/Mesh.hpp"
+#include "world/Chunk.hpp"
 
 namespace mcc {
 
@@ -35,12 +35,12 @@ private:
 	Camera m_cam;
 	float m_cam_speed = 0.0f;
 
-	// Block
+	// Chunks
+	Chunk m_chunk;
+	Mesh m_chunk_mesh;
+
     Shader m_shader;
-    VertexBufferObj m_VBO;
-    ElementBufferObj m_EBO;
-    VertexArrayObj m_VAO;
-    Texture m_wall_tex;
+	Texture m_block_atlas;
 
 	// Time
 	float m_delta_time = 0.0f;
