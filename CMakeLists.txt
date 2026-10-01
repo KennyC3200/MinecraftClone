@@ -16,6 +16,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Generates compile_commands.json for VS Code IntelliSense / clangd
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Use DGPU
+option(MC_PREFER_DGPU "Run on discrete GPU" ON)
+
 # Default to Debug for single-config generators when no build type is given
 if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
@@ -54,6 +57,10 @@ target_compile_definitions(MinecraftClone PRIVATE
     GLFW_INCLUDE_NONE       # glad provides the OpenGL headers, not GLFW
     GLM_ENABLE_EXPERIMENTAL # For hash functions
 )
+
+if (MC_PREFER_DGPU)
+    target_compile_definitions(MinecraftClone PRIVATE MC_PREFER_DGPU)
+endif()
 
 # ---------------------------------------------------------------------------
 # Compiler warnings
