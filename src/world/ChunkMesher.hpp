@@ -8,6 +8,16 @@
 
 namespace mcc {
 
+struct PaddedChunk {
+	static constexpr int SIZE = Chunk::SIZE + 2;
+	static constexpr int VOLUME = SIZE * SIZE * SIZE;
+	std::array<BlockId, VOLUME> m_blocks;
+
+	// pos runs from -1 to 16 on each axis
+	BlockId GetBlock(const glm::ivec3& pos) const;
+	void SetBlock(const glm::ivec3& pos, BlockId block);
+};
+
 // Appends one block face (4 vertices, 6 indices) to `data`. `block_pos` is the block's position in
 // chunk-local coordinates. `tile` is the face's atlas tile (from BlockInfo::TileFor)
 void AppendFace(MeshData& data, const glm::ivec3& block_pos, Face face, int tile);
@@ -20,6 +30,6 @@ void AppendFace(MeshData& data, const glm::ivec3& block_pos, Face face, int tile
 // corner: 	0 to 3 		-> 2 bits
 // tile: 	0 to 255 	-> 8 bits
 // spare
-MeshData BuildChunkMesh(const Chunk& chunk);
+MeshData BuildChunkMesh(const PaddedChunk& chunk);
 
 }

@@ -1,8 +1,11 @@
 #include "world/ChunkMesher.hpp"
 #include "world/Block.hpp"
 
+#include <glm/gtx/string_cast.hpp>
+
 #include <array>
 #include <cstdint>
+#include <stdexcept>
 
 namespace mcc {
 
@@ -14,13 +17,20 @@ constexpr std::array<std::uint32_t, 6> QUAD_INDICES = {
 	2, 1, 3
 };
 
-std::int32_t PackVertex(const glm::ivec3& pos, Face face, int corner, int tile) {
+Vertex PackVertex(const glm::ivec3& pos, Face face, int corner, int tile) {
 	return static_cast<std::uint32_t>(pos.x) 
 		| static_cast<std::uint32_t>(pos.y) 	<< 5
 		| static_cast<std::uint32_t>(pos.z) 	<< 10
 		| static_cast<std::uint32_t>(face) 		<< 15
 		| static_cast<std::uint32_t>(corner) 	<< 18
 		| static_cast<std::uint32_t>(tile) 		<< 20;
+}
+
+bool InBounds(const glm::ivec3& pos) {
+	return 
+		pos.x >= -1 && pos.x < PaddedChunk::SIZE - 1 && 
+		pos.y >= -1 && pos.y < PaddedChunk::SIZE - 1 && 
+		pos.z >= -1 && pos.z < PaddedChunk::SIZE - 1;
 }
 
 }
@@ -41,7 +51,23 @@ void AppendFace(MeshData& data, const glm::ivec3& block_pos, Face face, int tile
 	}
 }
 
-MeshData BuildChunkMesh(const Chunk& chunk) {
+BlockId PaddedChunk::GetBlock(const glm::ivec3& pos) const {
+	if (!InBounds(pos)) {
+		throw std::runtime_error("PaddedChunk::GetBlock out of bounds: " + glm::to_string(pos));
+	}
+
+	return m_blocks[(pos.x + 1) + SIZE * ((pos.y + 1) + SIZE * (pos.z + 1))];
+}
+
+void PaddedChunk::SetBlock(const glm::ivec3& pos, BlockId block) {
+	if (!InBounds(pos)) {
+		throw std::runtime_error("PaddedChunk::GetBlock out of bounds: " + glm::to_string(pos));
+	}
+
+	m_blocks[(pos.x + 1) + SIZE * ((pos.y + 1) + SIZE * (pos.z + 1))] = block;
+}
+
+MeshData BuildChunkMesh(const PaddedChunk& chunk) {
 	MeshData mesh;
 
 	// Optimized loop order for cache

@@ -51,7 +51,8 @@ target_link_libraries(MinecraftClone PRIVATE
 
 target_compile_definitions(MinecraftClone PRIVATE
     MC_VERSION="${PROJECT_VERSION}"
-    GLFW_INCLUDE_NONE   # glad provides the OpenGL headers, not GLFW
+    GLFW_INCLUDE_NONE       # glad provides the OpenGL headers, not GLFW
+    GLM_ENABLE_EXPERIMENTAL # For hash functions
 )
 
 # ---------------------------------------------------------------------------

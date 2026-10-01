@@ -10,8 +10,6 @@ namespace mcc {
 
 Engine::Engine()
     : m_window(1280, 720)
-    , m_shader("assets/shaders/chunk.vert", "assets/shaders/chunk.frag") 
-    , m_block_atlas("assets/textures/blocks.png", GL_RGBA, GL_RGBA)
 {
 	// Depth
 	glEnable(GL_DEPTH_TEST);
@@ -51,16 +49,14 @@ Engine::Engine()
 		static_cast<Engine*>(glfwGetWindowUserPointer(window))->m_input.OnKey(key, action);
 	});
 
-	// Chunk
-	for (std::size_t z = 0; z < Chunk::SIZE; z++) {
-		for (std::size_t y = 0; y < Chunk::SIZE; y++) {
-			for (std::size_t x = 0; x < Chunk::SIZE; x++) {
-				m_chunk.SetBlock({x, y, z}, BlockId::Dirt);
+	// Mesh chunks
+	for (int x = 0; x < 4; x++) {
+		for (int y = 0; y < 1; y++) {
+			for (int z = 0; z < 4; z++) {
+				m_world_renderer.MeshChunk(m_world, {x, y, z});
 			}
 		}
 	}
-
-	m_chunk_mesh.Upload(BuildChunkMesh(m_chunk));
 }
 
 void Engine::Run() {
@@ -137,18 +133,11 @@ void Engine::Render() {
     glClearColor(sky_color.r, sky_color.g, sky_color.b, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	// MVP matrices into the RenderWorld
 	glm::mat4 model = glm::mat4(1.0f);
-	m_shader.SetUniform("model", model);
-
 	glm::mat4 view = m_cam.ViewMat();
-	m_shader.SetUniform("view", view);
-
 	glm::mat4 proj = m_cam.ProjMat((float)m_window.Width() / m_window.Height());
-	m_shader.SetUniform("proj", proj);
-
-	m_block_atlas.Bind(0);
-	m_shader.Bind();
-	m_chunk_mesh.Draw();
+	m_world_renderer.RenderWorld(model, view, proj);
 }
 
 void Engine::SwapBuffers() { 
