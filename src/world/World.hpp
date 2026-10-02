@@ -13,7 +13,9 @@ namespace mcc {
 
 class World final {
 public:
-	World();
+	using MapType = std::unordered_map<glm::ivec3, std::unique_ptr<Chunk>>;
+
+	World(int render_dist);
 
 	World(const World&) = delete;
 	World& operator=(const World&) = delete;
@@ -29,8 +31,17 @@ public:
 	BlockId GetBlock(const glm::ivec3& world_pos) const;
 	void SetBlock(const glm::ivec3& world_pos, BlockId id);
 
+	int GetRenderDist() const { return m_render_dist; }
+
+	void Update(glm::ivec3 center_chunk_pos);
+
+	const MapType& GetChunks() { return m_chunks; }
+
 private:
-	std::unordered_map<glm::ivec3, std::unique_ptr<Chunk>> m_chunks;
+	void GenerateChunk(const glm::ivec3& chunk_pos);
+
+	MapType m_chunks;
+	int m_render_dist;
 };
 
 }

@@ -26,7 +26,6 @@ public:
 	void SetBlock(const glm::ivec3& pos, BlockId id);
 
 private:
-
 	std::array<BlockId, VOLUME> m_blocks{};
 };
 

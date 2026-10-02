@@ -4,6 +4,9 @@
 
 namespace mcc {
 
+Camera::Camera(const glm::vec3& pos) 
+	: m_pos(pos) {}
+
 void Camera::Rotate(float d_yaw, float d_pitch) {
 	m_yaw += d_yaw;
 	m_pitch += d_pitch;
@@ -25,8 +28,8 @@ glm::mat4 Camera::ViewMat() const {
 	return glm::lookAt(m_pos, m_pos + m_front, m_up);
 }
 
-glm::mat4 Camera::ProjMat(float aspect) const {
-	return glm::perspective(glm::radians(45.0f), aspect, 0.1f, 100.0f); 
+glm::mat4 Camera::ProjMat(float aspect, float far_z) const {
+	return glm::perspective(glm::radians(45.0f), aspect, 0.1f, far_z); 
 }
 
 }

@@ -1,5 +1,4 @@
 #include "core/Engine.hpp"
-#include "world/ChunkMesher.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
@@ -9,7 +8,9 @@
 namespace mcc {
 
 Engine::Engine()
-    : m_window(1280, 720)
+    : m_window(1920, 1080)
+	, m_cam(glm::vec3(32.0f, 24.0f, 100.0f))
+	, m_world(2)
 {
 	// Depth
 	glEnable(GL_DEPTH_TEST);
@@ -50,12 +51,9 @@ Engine::Engine()
 	});
 
 	// Mesh chunks
-	for (int x = 0; x < 4; x++) {
-		for (int y = 0; y < 1; y++) {
-			for (int z = 0; z < 4; z++) {
-				m_world_renderer.MeshChunk(m_world, {x, y, z});
-			}
-		}
+	const auto& chunks = m_world.GetChunks();
+	for (const auto& [chunk_pos, chunk] : chunks) {
+		m_world_renderer.MeshChunk(m_world, chunk_pos);
 	}
 }
 
@@ -81,10 +79,8 @@ void Engine::Update() {
 	m_delta_time = current_frame - m_last_frame;
 	m_last_frame = current_frame;
 
-	m_cam_speed = 20.0f * m_delta_time;
+	m_cam_speed = 50.0f * m_delta_time;
 
-	// INPUT
-	// ---------------------------------------------------------------------------------------------
 	// Closing the application
 	if (m_input.IsKeyDown(GLFW_KEY_Q)) {
 		glfwSetWindowShouldClose(m_window.Handle(), true);
@@ -136,7 +132,10 @@ void Engine::Render() {
 	// MVP matrices into the RenderWorld
 	glm::mat4 model = glm::mat4(1.0f);
 	glm::mat4 view = m_cam.ViewMat();
-	glm::mat4 proj = m_cam.ProjMat((float)m_window.Width() / m_window.Height());
+	glm::mat4 proj = m_cam.ProjMat(
+		(float)m_window.Width() / m_window.Height(), 
+		1000.0f
+	);
 	m_world_renderer.RenderWorld(model, view, proj);
 }
 
