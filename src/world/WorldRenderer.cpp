@@ -74,12 +74,38 @@ void WorldRenderer::MeshChunk(const World& world, const glm::ivec3& chunk_pos) {
 	if (!world.GetChunk(chunk_pos)) return;
 
 	PaddedChunk padded_chunk;
-	glm::ivec3 origin = chunk_pos * Chunk::SIZE;
+
+	// Each chunk has 26 neighbours + the original chunk in the center = 27 chunks
+	// Like a Rubix cube
+	std::array<const Chunk*, 27> neighbours{};
+	auto index = [](const glm::ivec3& offset) {
+		return (offset.x + 1) + 3 * ((offset.y + 1) + 3 * (offset.z + 1));
+	};
+
+	// Populate the neighbours array
+	for (int z = -1; z <= 1; z++) {
+		for (int y = -1; y <= 1; y++) {
+			for (int x = -1; x <= 1; x++) {
+				glm::ivec3 neighbour(x, y, z);
+				neighbours[index(neighbour)] = world.GetChunk(chunk_pos + neighbour);
+			}
+		}
+	}
+
+	// Fill in the blocks for the padded chunk
+	// Trick is, given that pos runs from -1 to 16:
+	// pos		pos >> 4		pos & 15
+	// ---------------------------------
+	// -1		-1				15
+	// 0..15	0				0..15
+	// 16		1				0
+	// So pos >> 4 gives the chunk and pos & 15 gives the block inside the chunk
 	for (int z = -1; z < PaddedChunk::SIZE - 1; z++) {
 		for (int y = -1; y < PaddedChunk::SIZE - 1; y++) {
 			for (int x = -1; x < PaddedChunk::SIZE - 1; x++) {
-				glm::ivec3 pos = { x, y, z };
-				padded_chunk.SetBlock(pos, world.GetBlock(origin + pos));
+				glm::ivec3 pos(x, y, z);
+				const Chunk* src = neighbours[index(pos >> 4)];
+				padded_chunk.SetBlock(pos, src ? src->GetBlock(pos & 15) : BlockId::Air);
 			}
 		}
 	}
