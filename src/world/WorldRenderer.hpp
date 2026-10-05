@@ -22,7 +22,8 @@ public:
 	Mesh* GetChunkMesh(const glm::ivec3& chunk_pos);
 	const Mesh* GetChunkMesh(const glm::ivec3& chunk_pos) const;
 
-	void RenderWorld(const glm::mat4& model, const glm::mat4& view, const glm::mat4 proj);
+	void Update(const World& world, const ChunkChanges& changes);
+	void RenderWorld(const glm::mat4& model, const glm::mat4& view, const glm::mat4& proj);
 	void MeshChunk(const World& world, const glm::ivec3& chunk_pos);
 
 private:

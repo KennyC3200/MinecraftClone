@@ -1,6 +1,8 @@
 #include "WorldRenderer.hpp"
 #include "ChunkMesher.hpp"
 
+#include <unordered_set>
+
 namespace mcc {
 
 WorldRenderer::WorldRenderer() 
@@ -21,10 +23,39 @@ const Mesh* WorldRenderer::GetChunkMesh(const glm::ivec3& chunk_pos) const {
 	return it != m_chunk_meshes.end() ? it->second.get() : nullptr;
 }
 
+void WorldRenderer::Update(const World& world, const ChunkChanges& changes) {
+	std::unordered_set<glm::ivec3> to_mesh;
+
+	// Mesh chunks
+	for (const glm::ivec3& unloaded : changes.m_unloaded) {
+		for (const FaceDef& face : FACES) {
+			glm::ivec3 chunk = unloaded + face.m_normal;
+			if (m_chunk_meshes.contains(chunk)) {
+				to_mesh.insert(chunk);
+			}
+		}
+		m_chunk_meshes.erase(unloaded);
+	}
+
+	for (const glm::ivec3& loaded : changes.m_loaded) {
+		for (const FaceDef& face : FACES) {
+			glm::ivec3 chunk = loaded + face.m_normal;
+			if (m_chunk_meshes.contains(chunk)) {
+				to_mesh.insert(chunk);
+			}
+		}
+		to_mesh.insert(loaded);
+	}
+
+	for (const auto& chunk_pos : to_mesh) {
+		MeshChunk(world, chunk_pos);
+	}
+}
+
 void WorldRenderer::RenderWorld(
 	const glm::mat4& model, 
 	const glm::mat4& view, 
-	const glm::mat4 proj) 
+	const glm::mat4& proj) 
 {
 	m_block_atlas.Bind(0);
 	m_shader.Bind();
@@ -33,10 +64,8 @@ void WorldRenderer::RenderWorld(
 	m_shader.SetUniform("proj", proj);
 
 	for (auto& [chunk_pos, mesh] : m_chunk_meshes) {
-		if (mesh) {
-			m_shader.SetUniform("chunk_origin", chunk_pos * Chunk::SIZE);
-			GetChunkMesh(chunk_pos)->Draw();
-		}
+		m_shader.SetUniform("chunk_origin", chunk_pos * Chunk::SIZE);
+		mesh->Draw();
 	}
 }
 

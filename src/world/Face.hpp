@@ -8,7 +8,7 @@
 
 namespace mcc {
 
-enum class Face : std::uint8_t {
+enum class Dir : std::uint8_t {
 	North, // -z
 	South, // +z
 	East,  // +x
@@ -17,6 +17,20 @@ enum class Face : std::uint8_t {
 	Down,  // -y
 	Count
 };
+
+using Face = Dir;
+
+inline glm::vec3 DirVec(Dir dir) {
+	switch (dir) {
+		case Dir::North: 	return glm::vec3(0, 0, -1);
+		case Dir::South: 	return glm::vec3(0, 0, 1);
+		case Dir::East:		return glm::vec3(1, 0, 0);
+		case Dir::West:		return glm::vec3(-1, 0, 0);
+		case Dir::Up:		return glm::vec3(0, 1, 0);
+		case Dir::Down:		return glm::vec3(0, -1, 0);
+		default : 			return glm::vec3(0, 0, 0);
+	}
+}
 
 // One face of the unit cube that spans 0 to 1 on each axis.
 struct FaceDef {

@@ -7,9 +7,17 @@
 
 namespace mcc {
 
+namespace {
+
+glm::vec3 InitialWorldPos(int render_dist) {
+	return glm::vec3(render_dist, 1, render_dist);
+}
+
+}
+
 Engine::Engine()
     : m_window(1920, 1080)
-	, m_cam(glm::vec3(32.0f, 24.0f, 100.0f))
+	, m_cam(InitialWorldPos(2))
 	, m_world(2)
 {
 	// Depth
@@ -49,12 +57,6 @@ Engine::Engine()
 	glfwSetKeyCallback(m_window.Handle(), [](GLFWwindow* window, int key, int, int action, int) {
 		static_cast<Engine*>(glfwGetWindowUserPointer(window))->m_input.OnKey(key, action);
 	});
-
-	// Mesh chunks
-	const auto& chunks = m_world.GetChunks();
-	for (const auto& [chunk_pos, chunk] : chunks) {
-		m_world_renderer.MeshChunk(m_world, chunk_pos);
-	}
 }
 
 void Engine::Run() {
@@ -87,17 +89,24 @@ void Engine::Update() {
 	}
 
 	// Movement
+	glm::vec3 front = m_cam.Front();
 	if (m_input.IsKeyDown(GLFW_KEY_W)) {
-		m_cam.Move(m_cam_speed * m_cam.Front());
+		m_cam.Move(m_cam_speed * glm::vec3(front.x, 0, front.z));
 	}
 	if (m_input.IsKeyDown(GLFW_KEY_S)) {
-		m_cam.Move(-m_cam_speed * m_cam.Front());
+		m_cam.Move(-m_cam_speed * glm::vec3(front.x, 0, front.z));
 	}
 	if (m_input.IsKeyDown(GLFW_KEY_A)) {
 		m_cam.Move(-m_cam_speed * m_cam.Right());
 	}
 	if (m_input.IsKeyDown(GLFW_KEY_D)) {
 		m_cam.Move(m_cam_speed * m_cam.Right());
+	}
+	if (m_input.IsKeyDown(GLFW_KEY_SPACE)) {
+		m_cam.Move(m_cam_speed * DirVec(Dir::Up));
+	}
+	if (m_input.IsKeyDown(GLFW_KEY_LEFT_SHIFT)) {
+		m_cam.Move(m_cam_speed * DirVec(Dir::Down));
 	}
 
 	// Toggle/untoggle cursor
@@ -122,6 +131,10 @@ void Engine::Update() {
 	} else {
 		m_input.SetFirstMouse(true);
 	}
+
+	// World
+	ChunkChanges changes = m_world.Update(m_cam.Pos());
+	m_world_renderer.Update(m_world, changes);
 }
 
 void Engine::Render() {

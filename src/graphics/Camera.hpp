@@ -13,6 +13,7 @@ public:
 	void Rotate(float d_yaw, float d_pitch);
 	void Move(const glm::vec3& offset);
 
+	glm::vec3 Pos() const { return m_pos; }
 	glm::mat4 ViewMat() const;
 	glm::mat4 ProjMat(float aspect, float far_z) const;
 	const glm::vec3& Front() const { return m_front; }

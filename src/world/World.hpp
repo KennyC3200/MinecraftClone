@@ -8,8 +8,15 @@
 
 #include <unordered_map>
 #include <memory>
+#include <optional>
+#include <vector>
 
 namespace mcc {
+
+struct ChunkChanges {
+	std::vector<glm::ivec3> m_loaded;
+	std::vector<glm::ivec3> m_unloaded;
+};
 
 class World final {
 public:
@@ -33,14 +40,15 @@ public:
 
 	int GetRenderDist() const { return m_render_dist; }
 
-	void Update(glm::ivec3 center_chunk_pos);
+	ChunkChanges Update(const glm::vec3& pos);
 
-	const MapType& GetChunks() { return m_chunks; }
+	const MapType& GetChunks() const { return m_chunks; }
 
 private:
 	void GenerateChunk(const glm::ivec3& chunk_pos);
 
 	MapType m_chunks;
+	std::optional<glm::ivec3> m_center;
 	int m_render_dist;
 };
 
