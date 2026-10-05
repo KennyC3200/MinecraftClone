@@ -25,8 +25,12 @@ public:
 	BlockId GetBlock(const glm::ivec3& pos) const;
 	void SetBlock(const glm::ivec3& pos, BlockId id);
 
+	bool IsEmpty() const { return m_solid_cnt == 0; }
+	bool IsFull() const { return m_solid_cnt == VOLUME; }
+
 private:
 	std::array<BlockId, VOLUME> m_blocks{};
+	std::size_t m_solid_cnt = 0;
 };
 
 }

@@ -7,45 +7,6 @@
 
 namespace mcc {
 
-namespace {
-
-constexpr auto BLOCK_INFOS = std::to_array<BlockInfo>({
-	// Air
-	{
-		.m_solid = false
-	},
-
-	// Dirt
-	{
-		.m_solid = true,
-		.m_tile_top = 2,
-		.m_tile_side = 2,
-		.m_tile_bottom = 2
-	},
-
-	// Grass
-	{
-		.m_solid = true,
-		.m_tile_top = 0,
-		.m_tile_side = 1,
-		.m_tile_bottom = 2
-	},
-
-	// Stone
-	{
-		.m_solid = true,
-		.m_tile_top = 3,
-		.m_tile_side = 3,
-		.m_tile_bottom = 3
-	},
-});
-
-static_assert(
-	BLOCK_INFOS.size() == static_cast<std::size_t>(BlockId::Count),
-	"BLOCK_INFOS needs one entry per BlockId");
-
-}
-
 int BlockInfo::TileFor(Face face) const {
 	switch (face) {
 		case Face::North: 	return m_tile_side;

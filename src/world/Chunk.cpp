@@ -23,15 +23,9 @@ std::size_t Index(const glm::ivec3& pos) {
 }
 
 BlockId Chunk::GetBlock(const glm::ivec3& pos) const {
-	// Return Air for now so that faces on the border of chunks will draw
 	if (!InBounds(pos)) {
-		return BlockId::Air;
+		throw std::runtime_error("Chunk::GetBlock out of bounds: " + glm::to_string(pos));
 	}
-
-	// Add this later when we check neighbouring chunks
-	// if (!InBounds(pos)) {
-	// 	throw std::runtime_error("Chunk::GetBlock out of bounds: " + glm::to_string(pos));
-	// }
 
 	return m_blocks[Index(pos)];
 }
@@ -41,7 +35,12 @@ void Chunk::SetBlock(const glm::ivec3& pos, BlockId id) {
 		throw std::runtime_error("Chunk::SetBlock out of bounds: " + glm::to_string(pos));
 	}
 
-	m_blocks[Index(pos)] = id;
+	std::size_t idx = Index(pos);
+
+	if (IsSolid(m_blocks[idx])) m_solid_cnt--;
+
+	m_blocks[idx] = id;
+	if(IsSolid(id)) m_solid_cnt++;
 }
 
 }

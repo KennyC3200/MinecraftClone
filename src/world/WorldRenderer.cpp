@@ -26,25 +26,17 @@ const Mesh* WorldRenderer::GetChunkMesh(const glm::ivec3& chunk_pos) const {
 void WorldRenderer::Update(const World& world, const ChunkChanges& changes) {
 	std::unordered_set<glm::ivec3> to_mesh;
 
-	// Mesh chunks
+	// Erase the unloaded chunks from the meshes
 	for (const glm::ivec3& unloaded : changes.m_unloaded) {
-		for (const FaceDef& face : FACES) {
-			glm::ivec3 chunk = unloaded + face.m_normal;
-			if (m_chunk_meshes.contains(chunk)) {
-				to_mesh.insert(chunk);
-			}
-		}
 		m_chunk_meshes.erase(unloaded);
 	}
 
+	// Mesh loaded chunks
 	for (const glm::ivec3& loaded : changes.m_loaded) {
-		for (const FaceDef& face : FACES) {
-			glm::ivec3 chunk = loaded + face.m_normal;
-			if (m_chunk_meshes.contains(chunk)) {
-				to_mesh.insert(chunk);
-			}
-		}
 		to_mesh.insert(loaded);
+		for (const FaceDef& face : FACES) {
+			to_mesh.insert(loaded + face.m_normal);
+		}
 	}
 
 	for (const auto& chunk_pos : to_mesh) {
@@ -92,6 +84,23 @@ void WorldRenderer::MeshChunk(const World& world, const glm::ivec3& chunk_pos) {
 		}
 	}
 
+	const Chunk* center = neighbours[index({0, 0, 0})];
+
+	auto is_full = [&](const glm::ivec3& offset) {
+		const Chunk* chunk = neighbours[index(offset)];
+		return chunk ? chunk->IsFull() : offset.y <= 0;
+	};
+
+	bool buried = center->IsFull();
+	for (const FaceDef& face : FACES) {
+		buried = buried && is_full(face.m_normal);
+	}
+
+	if (center->IsEmpty() || buried) {
+		m_chunk_meshes.erase(chunk_pos);
+		return;
+	}
+
 	// Fill in the blocks for the padded chunk
 	// Trick is, given that pos runs from -1 to 16:
 	// pos		pos >> 4		pos & 15
@@ -104,8 +113,10 @@ void WorldRenderer::MeshChunk(const World& world, const glm::ivec3& chunk_pos) {
 		for (int y = -1; y < PaddedChunk::SIZE - 1; y++) {
 			for (int x = -1; x < PaddedChunk::SIZE - 1; x++) {
 				glm::ivec3 pos(x, y, z);
-				const Chunk* src = neighbours[index(pos >> 4)];
-				padded_chunk.SetBlock(pos, src ? src->GetBlock(pos & 15) : BlockId::Air);
+				glm::ivec3 off = pos >> 4;
+				const Chunk* src = neighbours[index(off)];
+				padded_chunk.SetBlock(pos, src ? src->GetBlock(pos & 15) 
+					: (off.y > 0 ? BlockId::Air : BlockId::Stone)); 
 			}
 		}
 	}

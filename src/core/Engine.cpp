@@ -5,7 +5,13 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <chrono>
+#include <iostream>
+
 namespace mcc {
+
+using Clock = std::chrono::steady_clock;
+using ms = std::chrono::duration<double, std::milli>;
 
 namespace {
 
@@ -18,7 +24,7 @@ glm::vec3 InitialWorldPos(int render_dist) {
 Engine::Engine()
     : m_window(1920, 1080)
 	, m_cam(InitialWorldPos(2))
-	, m_world(2)
+	, m_world(8)
 {
 	// Depth
 	glEnable(GL_DEPTH_TEST);
@@ -133,8 +139,18 @@ void Engine::Update() {
 	}
 
 	// World
+	auto t0 = Clock::now();
 	ChunkChanges changes = m_world.Update(m_cam.Pos());
+	auto t1 = Clock::now();
 	m_world_renderer.Update(m_world, changes);
+	auto t2 = Clock::now();
+
+	if (!changes.m_loaded.empty() || !changes.m_unloaded.empty()) {
+		std::cout << "world: " << ms(t1 - t0).count() << " ms ("
+			<< changes.m_loaded.size() << " loaded, "
+			<< changes.m_unloaded.size() << " unloaded), renderer: "
+			<< ms(t2 - t1).count() << " ms\n";
+	}
 }
 
 void Engine::Render() {
