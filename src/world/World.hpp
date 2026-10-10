@@ -13,6 +13,9 @@
 
 namespace mcc {
 
+static constexpr int MIN_CHUNK_Y = 0;
+static constexpr int MAX_CHUNK_Y = 8;
+
 struct ChunkChanges {
 	std::vector<glm::ivec3> m_loaded;
 	std::vector<glm::ivec3> m_unloaded;
