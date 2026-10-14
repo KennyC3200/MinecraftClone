@@ -48,8 +48,6 @@ public:
 	const MapType& GetChunks() const { return m_chunks; }
 
 private:
-	void GenerateChunk(const glm::ivec3& chunk_pos);
-
 	MapType m_chunks;
 	std::optional<glm::ivec3> m_center;
 	int m_render_dist;

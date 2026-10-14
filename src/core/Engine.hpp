@@ -28,13 +28,13 @@ private:
 	GLFWContext m_context;
     Window m_window;
 
+	World m_world;
+	WorldRenderer m_world_renderer;
+
 	Input m_input;
 
 	Camera m_cam;
 	float m_cam_speed = 0.0f;
-
-	World m_world;
-	WorldRenderer m_world_renderer;
 
 	// Time
 	float m_delta_time = 0.0f;

@@ -1,4 +1,6 @@
 #include "World.hpp"
+#include "Terrain.hpp"
+#include "world/World.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -73,11 +75,11 @@ ChunkChanges World::Update(const glm::vec3& pos) {
 	// For render distance R:
 	// Load new chunks within R in x and z directions
 	for (int x = -m_render_dist; x <= m_render_dist; x++) {
-		for (int y = -8; y < 0; y++) {
+		for (int y = MIN_CHUNK_Y; y < MAX_CHUNK_Y; y++) {
 			for (int z = -m_render_dist; z <= m_render_dist; z++) {
 				glm::ivec3 chunk_pos = { center.x + x, y, center.z + z };
 				if (!m_chunks.contains(chunk_pos)) {
-					GenerateChunk(chunk_pos);
+					m_chunks[chunk_pos] = GenerateChunk(chunk_pos);
 					changes.m_loaded.push_back(chunk_pos);
 				}
 			}
@@ -87,22 +89,6 @@ ChunkChanges World::Update(const glm::vec3& pos) {
 	m_center = center;
 
 	return changes;
-}
-
-// TODO: Add perlin noise to this
-void World::GenerateChunk(const glm::ivec3& chunk_pos) {
-	auto chunk = std::make_unique<Chunk>();
-
-	for (int k = 0; k < Chunk::SIZE; k++) {
-		for (int j = 0; j < Chunk::SIZE; j++) {
-			for (int i = 0; i < Chunk::SIZE; i++) {
-				chunk.get()->SetBlock({i, j, k}, BlockId::Grass);
-			}
-		}
-	}
-
-	// Move the ownership of the unique_ptr
-	m_chunks[chunk_pos] = std::move(chunk);
 }
 
 }

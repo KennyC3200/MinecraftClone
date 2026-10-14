@@ -1,4 +1,5 @@
 #include "core/Engine.hpp"
+#include "world/Terrain.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
@@ -15,16 +16,16 @@ using ms = std::chrono::duration<double, std::milli>;
 
 namespace {
 
-glm::vec3 InitialWorldPos(int render_dist) {
-	return glm::vec3(render_dist, 1, render_dist);
+glm::vec3 InitialWorldPos() {
+	return glm::vec3(0, SurfaceHeight(0, 0) + 3, 0);
 }
 
 }
 
 Engine::Engine()
     : m_window(1920, 1080)
-	, m_cam(InitialWorldPos(2))
 	, m_world(8)
+	, m_cam(InitialWorldPos())
 {
 	// Depth
 	glEnable(GL_DEPTH_TEST);
