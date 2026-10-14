@@ -24,7 +24,7 @@ glm::vec3 InitialWorldPos() {
 
 Engine::Engine()
     : m_window(1920, 1080)
-	, m_world(8)
+	, m_world(32)
 	, m_cam(InitialWorldPos())
 {
 	// Depth
@@ -68,10 +68,13 @@ Engine::Engine()
 
 void Engine::Run() {
     while (!glfwWindowShouldClose(m_window.Handle())) {
+		auto t0 = Clock::now();
         Poll();
         Update();
         Render();
         SwapBuffers();
+		auto t1 = Clock::now();
+		std::cout << ms(t1 - t0).count() << "ms\n";
     }
 }
 
@@ -140,18 +143,18 @@ void Engine::Update() {
 	}
 
 	// World
-	auto t0 = Clock::now();
+	// auto t0 = Clock::now();
 	ChunkChanges changes = m_world.Update(m_cam.Pos());
-	auto t1 = Clock::now();
+	// auto t1 = Clock::now();
 	m_world_renderer.Update(m_world, changes);
-	auto t2 = Clock::now();
+	// auto t2 = Clock::now();
 
-	if (!changes.m_loaded.empty() || !changes.m_unloaded.empty()) {
-		std::cout << "world: " << ms(t1 - t0).count() << " ms ("
-			<< changes.m_loaded.size() << " loaded, "
-			<< changes.m_unloaded.size() << " unloaded), renderer: "
-			<< ms(t2 - t1).count() << " ms\n";
-	}
+	// if (!changes.m_loaded.empty() || !changes.m_unloaded.empty()) {
+		// std::cout << "world: " << ms(t1 - t0).count() << " ms ("
+		// 	<< changes.m_loaded.size() << " loaded, "
+		// 	<< changes.m_unloaded.size() << " unloaded), renderer: "
+		// 	<< ms(t2 - t1).count() << " ms\n";
+	// }
 }
 
 void Engine::Render() {

@@ -30,6 +30,8 @@ private:
 	MapType m_chunk_meshes;
 	Shader m_shader;
 	Texture m_block_atlas;
+
+	GLint m_chunk_uniform_loc;
 };
 
 }

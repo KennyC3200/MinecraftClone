@@ -21,17 +21,18 @@ public:
     [[nodiscard]] GLuint Handle() const & { return m_handle; }
     GLuint Handle() const && = delete;
 
+    GLint UniformLoc(const std::string& name) const;
+
     void Bind() const;
 
     void SetUniform(const std::string& name, int val) const;
     void SetUniform(const std::string& name, float val) const;
     void SetUniform(const std::string& name, const glm::vec3& val) const;
 	void SetUniform(const std::string& name, const glm::ivec3& val) const;
+	void SetUniform(GLint loc, const glm::ivec3& val) const;
     void SetUniform(const std::string& name, const glm::mat4& val) const;
 
 private:
-    GLint UniformLoc(const std::string& name) const;
-
     GLuint m_handle = 0;
     std::string m_vert_path, m_frag_path;
 };

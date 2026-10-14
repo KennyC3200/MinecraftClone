@@ -1,5 +1,6 @@
 #include "WorldRenderer.hpp"
 #include "ChunkMesher.hpp"
+#include "graphics/Frustum.hpp"
 
 #include <unordered_set>
 
@@ -7,7 +8,10 @@ namespace mcc {
 
 WorldRenderer::WorldRenderer() 
 	: m_shader("assets/shaders/chunk.vert", "assets/shaders/chunk.frag")
-	, m_block_atlas("assets/textures/blocks.png", GL_RGBA, GL_RGBA) {}
+	, m_block_atlas("assets/textures/blocks.png", GL_RGBA, GL_RGBA) 
+{
+	m_chunk_uniform_loc = m_shader.UniformLoc("chunk_origin");
+}
 
 Mesh* WorldRenderer::GetChunkMesh(const glm::ivec3& chunk_pos) {
 	// `it` returns an iterator that contains the ivec3 and unique_ptr
@@ -55,8 +59,13 @@ void WorldRenderer::RenderWorld(
 	m_shader.SetUniform("view", view);
 	m_shader.SetUniform("proj", proj);
 
+	Frustum frustum(proj, view);
 	for (auto& [chunk_pos, mesh] : m_chunk_meshes) {
-		m_shader.SetUniform("chunk_origin", chunk_pos * Chunk::SIZE);
+		glm::vec3 min = chunk_pos * Chunk::SIZE;
+		glm::vec3 max = min + float(Chunk::SIZE);
+		if (!frustum.IntersectsBox(min, max)) continue;
+
+		m_shader.SetUniform(m_chunk_uniform_loc, chunk_pos * Chunk::SIZE);
 		mesh->Draw();
 	}
 }

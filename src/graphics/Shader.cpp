@@ -134,6 +134,10 @@ void Shader::SetUniform(const std::string& name, const glm::ivec3& val) const {
     glProgramUniform3iv(m_handle, UniformLoc(name), 1, glm::value_ptr(val));
 }
 
+void Shader::SetUniform(GLint loc, const glm::ivec3& val) const {
+	glProgramUniform3iv(m_handle, loc, 1, glm::value_ptr(val));
+}
+
 void Shader::SetUniform(const std::string& name, const glm::mat4& val) const {
     glProgramUniformMatrix4fv(m_handle, UniformLoc(name), 1, GL_FALSE, glm::value_ptr(val));
 }
