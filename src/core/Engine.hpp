@@ -23,6 +23,7 @@ private:
 
 	struct {
 		bool m_wireframe = false;
+		int m_render_distance = 32;
 	} m_flags;
 
 	GLFWContext m_context;

@@ -24,7 +24,7 @@ glm::vec3 InitialWorldPos() {
 
 Engine::Engine()
     : m_window(1920, 1080)
-	, m_world(32)
+	, m_world(m_flags.m_render_distance)
 	, m_cam(InitialWorldPos())
 {
 	// Depth
@@ -76,6 +76,9 @@ void Engine::Run() {
 		auto t1 = Clock::now();
 		std::cout << ms(t1 - t0).count() << "ms\n";
     }
+
+	// Hide the window while underlying resources are being freed
+	m_window.HideWindow();
 }
 
 void Engine::Poll() {
@@ -91,7 +94,7 @@ void Engine::Update() {
 	m_delta_time = current_frame - m_last_frame;
 	m_last_frame = current_frame;
 
-	m_cam_speed = 50.0f * m_delta_time;
+	m_cam_speed = 100.0f * m_delta_time;
 
 	// Closing the application
 	if (m_input.IsKeyDown(GLFW_KEY_Q)) {
@@ -143,18 +146,8 @@ void Engine::Update() {
 	}
 
 	// World
-	// auto t0 = Clock::now();
 	ChunkChanges changes = m_world.Update(m_cam.Pos());
-	// auto t1 = Clock::now();
 	m_world_renderer.Update(m_world, changes);
-	// auto t2 = Clock::now();
-
-	// if (!changes.m_loaded.empty() || !changes.m_unloaded.empty()) {
-		// std::cout << "world: " << ms(t1 - t0).count() << " ms ("
-		// 	<< changes.m_loaded.size() << " loaded, "
-		// 	<< changes.m_unloaded.size() << " unloaded), renderer: "
-		// 	<< ms(t2 - t1).count() << " ms\n";
-	// }
 }
 
 void Engine::Render() {
@@ -167,12 +160,12 @@ void Engine::Render() {
 	glm::mat4 view = m_cam.ViewMat();
 	glm::mat4 proj = m_cam.ProjMat(
 		(float)m_window.Width() / m_window.Height(), 
-		1000.0f
+		((m_flags.m_render_distance + 1) * Chunk::SIZE * 1.414)
 	);
 	m_world_renderer.RenderWorld(model, view, proj);
 }
 
-void Engine::SwapBuffers() { 
+void Engine::SwapBuffers() {
 	glfwSwapBuffers(m_window.Handle()); 
 }
 

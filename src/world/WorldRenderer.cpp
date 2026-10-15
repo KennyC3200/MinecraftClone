@@ -3,8 +3,12 @@
 #include "graphics/Frustum.hpp"
 
 #include <unordered_set>
+#include <chrono>
 
 namespace mcc {
+
+using Clock = std::chrono::steady_clock;
+using ms = std::chrono::duration<double, std::milli>;
 
 WorldRenderer::WorldRenderer() 
 	: m_shader("assets/shaders/chunk.vert", "assets/shaders/chunk.frag")
@@ -28,23 +32,48 @@ const Mesh* WorldRenderer::GetChunkMesh(const glm::ivec3& chunk_pos) const {
 }
 
 void WorldRenderer::Update(const World& world, const ChunkChanges& changes) {
-	std::unordered_set<glm::ivec3> to_mesh;
-
 	// Erase the unloaded chunks from the meshes
-	for (const glm::ivec3& unloaded : changes.m_unloaded) {
-		m_chunk_meshes.erase(unloaded);
+	for (const glm::ivec3& pos : changes.m_unloaded) {
+		m_chunk_meshes.erase(pos);
+		m_dirty.erase(pos);
 	}
 
 	// Mesh loaded chunks
-	for (const glm::ivec3& loaded : changes.m_loaded) {
-		to_mesh.insert(loaded);
+	for (const glm::ivec3& pos : changes.m_loaded) {
+		m_dirty.insert(pos);
 		for (const FaceDef& face : FACES) {
-			to_mesh.insert(loaded + face.m_normal);
+			glm::ivec3 n = pos + face.m_normal;
+			if (world.GetChunk(n)) {
+				m_dirty.insert(n);
+			}
 		}
 	}
 
-	for (const auto& chunk_pos : to_mesh) {
-		MeshChunk(world, chunk_pos);
+	// Collect dirty chunks whose neighbours are ready
+	glm::ivec3 center = world.GetCenter();
+	auto dist_squared = [&](const glm::ivec3& p) {
+		int dx = p.x - center.x;
+		int dz = p.z - center.z;
+		return dx * dx + dz * dz;
+	};
+
+	// Sort the dirty chunks to be nearest first in the queue
+	std::vector<glm::ivec3> ready;
+	for (const glm::ivec3& pos : m_dirty) {
+		if (NeighboursReady(world, pos)) {
+			ready.push_back(pos);
+		}
+	}
+	std::sort(ready.begin(), ready.end(), [&](const glm::ivec3& a, const glm::ivec3& b) {
+			return dist_squared(a) < dist_squared(b);
+		}
+	);
+
+	auto start = Clock::now();
+	for (const auto& pos : ready) {
+		if (ms(Clock::now() - start).count() > MESH_FRAMETIME_MS) break;
+		MeshChunk(world, pos);
+		m_dirty.erase(pos);
 	}
 }
 
@@ -136,6 +165,24 @@ void WorldRenderer::MeshChunk(const World& world, const glm::ivec3& chunk_pos) {
 	std::unique_ptr<Mesh>& mesh = m_chunk_meshes[chunk_pos];
 	if (!mesh) mesh = std::make_unique<Mesh>();
 	mesh->Upload(mesh_data);
+}
+
+bool WorldRenderer::NeighboursReady(const World& world, const glm::ivec3& chunk_pos) const {
+	glm::ivec3 center = world.GetCenter();
+	int render_dist = world.GetRenderDist();
+
+	glm::ivec3 sides[] = {{ 1, 0, 0 }, { -1, 0, 0 }, { 0, 0, 1 }, { 0, 0, -1 }};
+	for (const glm::ivec3& side : sides) {
+		glm::ivec3 n = chunk_pos + side;
+		int dist = std::max(std::abs(n.x - center.x), std::abs(n.z - center.z));
+
+		// Within R and the it is yet to be loaded means that it is still in World's queue
+		if (dist <= render_dist && !world.GetChunk(n)) {
+			return false;
+		}
+	}
+	
+	return true;
 }
 
 }

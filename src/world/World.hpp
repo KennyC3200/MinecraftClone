@@ -13,8 +13,8 @@
 
 namespace mcc {
 
-static constexpr int MIN_CHUNK_Y = 0;
-static constexpr int MAX_CHUNK_Y = 8;
+inline constexpr int MIN_CHUNK_Y = 0;
+inline constexpr int MAX_CHUNK_Y = 8;
 
 struct ChunkChanges {
 	std::vector<glm::ivec3> m_loaded;
@@ -33,6 +33,8 @@ public:
 	World(World&&) noexcept = delete;
 	World& operator=(World&&) noexcept = delete;
 
+	glm::ivec3 GetCenter() const { return m_center ? *m_center : glm::ivec3(0, 0, 0); }
+
 	// Returns nullptr if chunk is not yet loaded
 	Chunk* GetChunk(const glm::ivec3& chunk_pos);
 	const Chunk* GetChunk(const glm::ivec3& chunk_pos) const;
@@ -43,14 +45,22 @@ public:
 
 	int GetRenderDist() const { return m_render_dist; }
 
+	// Returns the chunk changes for ONE FRAME
 	ChunkChanges Update(const glm::vec3& pos);
 
 	const MapType& GetChunks() const { return m_chunks; }
 
 private:
+	void UnloadFarChunks(const glm::ivec3& center, ChunkChanges& changes);
+	void RebuildPending(const glm::ivec3& center);
+	void GeneratePending(ChunkChanges& changes);
+
 	MapType m_chunks;
 	std::optional<glm::ivec3> m_center;
 	int m_render_dist;
+
+	// Queue for loading chunks
+	std::vector<glm::ivec2> m_pending;
 };
 
 }

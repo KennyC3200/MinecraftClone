@@ -9,6 +9,7 @@
 #include <glm/gtx/hash.hpp>
 
 #include <unordered_map>
+#include <unordered_set>
 #include <memory>
 
 namespace mcc {
@@ -26,12 +27,19 @@ public:
 	void RenderWorld(const glm::mat4& model, const glm::mat4& view, const glm::mat4& proj);
 	void MeshChunk(const World& world, const glm::ivec3& chunk_pos);
 
+	void SetDirtyChunks(const glm::ivec3 chunk_pos);
+
 private:
 	MapType m_chunk_meshes;
 	Shader m_shader;
 	Texture m_block_atlas;
 
 	GLint m_chunk_uniform_loc;
+
+	bool NeighboursReady(const World& world, const glm::ivec3& chunk_pos) const;
+
+	std::unordered_set<glm::ivec3> m_dirty;
+		static constexpr double MESH_FRAMETIME_MS = 4.0;
 };
 
 }
