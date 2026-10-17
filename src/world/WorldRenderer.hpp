@@ -4,6 +4,7 @@
 #include "graphics/Mesh.hpp"
 #include "graphics/Texture.hpp"
 #include "world/World.hpp"
+#include "core/ThreadPool.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtx/hash.hpp>
@@ -23,9 +24,9 @@ public:
 	Mesh* GetChunkMesh(const glm::ivec3& chunk_pos);
 	const Mesh* GetChunkMesh(const glm::ivec3& chunk_pos) const;
 
-	void Update(const World& world, const ChunkChanges& changes);
+	void Update(const World& world, const ChunkChanges& changes, ThreadPool& thread_pool);
 	void RenderWorld(const glm::mat4& model, const glm::mat4& view, const glm::mat4& proj);
-	void MeshChunk(const World& world, const glm::ivec3& chunk_pos);
+	void MeshChunk(const World& world, const glm::ivec3& chunk_pos, ThreadPool& thread_pool);
 
 	void SetDirtyChunks(const glm::ivec3 chunk_pos);
 
@@ -39,7 +40,16 @@ private:
 	bool NeighboursReady(const World& world, const glm::ivec3& chunk_pos) const;
 
 	std::unordered_set<glm::ivec3> m_dirty;
-		static constexpr double MESH_FRAMETIME_MS = 4.0;
+	static constexpr double MESH_FRAMETIME_MS = 4.0;
+	static constexpr int MAX_UPLOADS_PER_FRAME = 4;
+
+	// Store the mesh data once the threads are done
+	struct InFlightMeshData {
+		glm::ivec3 m_pos;
+		std::future<MeshData> m_data;
+	};
+	std::vector<InFlightMeshData> m_in_flight_jobs;
+	std::unordered_set<glm::ivec3> m_in_flight_positions;
 };
 
 }

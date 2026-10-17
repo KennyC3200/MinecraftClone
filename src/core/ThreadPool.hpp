@@ -39,7 +39,7 @@ private:
 
 
 template <class FunctionType>
-auto ThreadPool::Submit (FunctionType f) -> std::future<decltype(f())> {
+auto ThreadPool::Submit(FunctionType f) -> std::future<decltype(f())> {
 	using ReturnType = decltype(f());
 
 	// Need type ReturnType() in packaged_task because we call (*task)() later down the line

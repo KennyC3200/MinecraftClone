@@ -31,14 +31,18 @@ const Mesh* WorldRenderer::GetChunkMesh(const glm::ivec3& chunk_pos) const {
 	return it != m_chunk_meshes.end() ? it->second.get() : nullptr;
 }
 
-void WorldRenderer::Update(const World& world, const ChunkChanges& changes) {
+void WorldRenderer::Update(
+	const World& world, 
+	const ChunkChanges& changes, 
+	ThreadPool& thread_pool) 
+{
 	// Erase the unloaded chunks from the meshes
 	for (const glm::ivec3& pos : changes.m_unloaded) {
 		m_chunk_meshes.erase(pos);
 		m_dirty.erase(pos);
 	}
 
-	// Mesh loaded chunks
+	// Add the chunks to be loaded to the set
 	for (const glm::ivec3& pos : changes.m_loaded) {
 		m_dirty.insert(pos);
 		for (const FaceDef& face : FACES) {
@@ -60,7 +64,7 @@ void WorldRenderer::Update(const World& world, const ChunkChanges& changes) {
 	// Sort the dirty chunks to be nearest first in the queue
 	std::vector<glm::ivec3> ready;
 	for (const glm::ivec3& pos : m_dirty) {
-		if (NeighboursReady(world, pos)) {
+		if (!m_in_flight_positions.contains(pos) && NeighboursReady(world, pos)) {
 			ready.push_back(pos);
 		}
 	}
@@ -69,11 +73,43 @@ void WorldRenderer::Update(const World& world, const ChunkChanges& changes) {
 		}
 	);
 
+	std::size_t max_in_flights = thread_pool.Size() * 2;
 	auto start = Clock::now();
 	for (const auto& pos : ready) {
 		if (ms(Clock::now() - start).count() > MESH_FRAMETIME_MS) break;
-		MeshChunk(world, pos);
+		if (m_in_flight_positions.size() >= max_in_flights) break;
+
+		MeshChunk(world, pos, thread_pool);
 		m_dirty.erase(pos);
+	}
+
+	int uploads = 0;
+
+	// Mesh the in mesh data once it is complete
+	for (auto it = m_in_flight_jobs.begin(); it != m_in_flight_jobs.end();) {
+		if (it->m_data.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+			it++;
+			continue;
+		}
+
+		// If the chunk is out of range now, don't mesh it
+		if (world.GetChunk(it->m_pos))
+		{
+			if (uploads >= MAX_UPLOADS_PER_FRAME) {
+				break;
+			}
+
+			std::unique_ptr<Mesh>& mesh = m_chunk_meshes[it->m_pos];
+			if (!mesh) mesh = std::make_unique<Mesh>();
+			mesh->Upload(it->m_data.get());
+			uploads++;
+		}
+
+		// Remove the mesh data from the hashset
+		m_in_flight_positions.erase(it->m_pos);
+
+		// Erase it from the vector
+		it = m_in_flight_jobs.erase(it);
 	}
 }
 
@@ -99,7 +135,11 @@ void WorldRenderer::RenderWorld(
 	}
 }
 
-void WorldRenderer::MeshChunk(const World& world, const glm::ivec3& chunk_pos) {
+void WorldRenderer::MeshChunk(
+	const World& world, 
+	const glm::ivec3& chunk_pos, 
+	ThreadPool& thread_pool) 
+{
 	// Ensure the chunk data has been loaded
 	if (!world.GetChunk(chunk_pos)) return;
 
@@ -159,12 +199,13 @@ void WorldRenderer::MeshChunk(const World& world, const glm::ivec3& chunk_pos) {
 		}
 	}
 
-	MeshData mesh_data = BuildChunkMesh(padded_chunk);
-
-	// Upload the mesh data to the mesh
-	std::unique_ptr<Mesh>& mesh = m_chunk_meshes[chunk_pos];
-	if (!mesh) mesh = std::make_unique<Mesh>();
-	mesh->Upload(mesh_data);
+	// Build the chunk mesh, and store the mesh data once complete (multithreaded)
+	m_in_flight_jobs.emplace_back(
+		chunk_pos,
+		thread_pool.Submit([padded_chunk] {
+			return BuildChunkMesh(padded_chunk);
+	}));
+	m_in_flight_positions.insert(chunk_pos);
 }
 
 bool WorldRenderer::NeighboursReady(const World& world, const glm::ivec3& chunk_pos) const {

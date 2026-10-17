@@ -148,7 +148,7 @@ void Engine::Update() {
 
 	// World
 	ChunkChanges changes = m_world.Update(m_cam.Pos(), m_thread_pool);
-	m_world_renderer.Update(m_world, changes);
+	m_world_renderer.Update(m_world, changes, m_thread_pool);
 }
 
 void Engine::Render() {

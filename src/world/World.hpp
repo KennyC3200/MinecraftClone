@@ -54,10 +54,11 @@ public:
 
 	const MapType& GetChunks() const { return m_chunks; }
 
+	bool ChunkColInBounds(const glm::ivec2& chunk_col_pos) const;
+
 private:
-	bool ChunkColInBounds(const glm::ivec2& chunk_col_pos, const glm::ivec2& center_col_pos);
-	void UnloadFarChunks(const glm::ivec3& center, ChunkChanges& changes);
-	void RebuildPending(const glm::ivec3& center);
+	void UnloadFarChunks(ChunkChanges& changes);
+	void RebuildPending();
 
 	MapType m_chunks;
 	std::optional<glm::ivec3> m_center;
@@ -71,6 +72,7 @@ private:
 
 	using ChunkCol = std::array<std::unique_ptr<Chunk>, COL_CHUNKS_CNT>;
 
+	// Store the chunk data once the threads are done
 	struct InFlightChunkCol {
 		InFlightChunkCol(const glm::ivec2& col, std::future<ChunkCol> chunks)
 			: m_col(col), m_chunks(std::move(chunks)) {}
@@ -78,9 +80,8 @@ private:
 		glm::ivec2 m_col;
 		std::future<ChunkCol> m_chunks;
 	};
-
-	std::vector<InFlightChunkCol> m_in_flight_chunk_cols;
-	std::unordered_set<glm::ivec2> m_chunk_col_in_flight;
+	std::vector<InFlightChunkCol> m_in_flight_jobs;
+	std::unordered_set<glm::ivec2> m_in_flight_positions;
 };
 
 }
