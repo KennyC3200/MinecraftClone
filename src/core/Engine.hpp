@@ -6,6 +6,7 @@
 #include "graphics/Camera.hpp"
 #include "world/World.hpp"
 #include "world/WorldRenderer.hpp"
+#include "core/ThreadPool.hpp"
 
 namespace mcc {
 
@@ -40,6 +41,10 @@ private:
 	// Time
 	float m_delta_time = 0.0f;
 	float m_last_frame = 0.0f;
+
+	// ThreadPool needs to be destroyed first
+	unsigned m_thread_hc = std::thread::hardware_concurrency();
+	ThreadPool m_thread_pool;
 };
 
 }

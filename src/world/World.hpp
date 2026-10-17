@@ -2,6 +2,7 @@
 
 #include "world/Block.hpp"
 #include "world/Chunk.hpp"
+#include "core/ThreadPool.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtx/hash.hpp>
@@ -10,11 +11,14 @@
 #include <memory>
 #include <optional>
 #include <vector>
+#include <array>
+#include <unordered_set>
 
 namespace mcc {
 
 inline constexpr int MIN_CHUNK_Y = 0;
 inline constexpr int MAX_CHUNK_Y = 8;
+inline constexpr int COL_CHUNKS_CNT = MAX_CHUNK_Y - MIN_CHUNK_Y;
 
 struct ChunkChanges {
 	std::vector<glm::ivec3> m_loaded;
@@ -46,14 +50,14 @@ public:
 	int GetRenderDist() const { return m_render_dist; }
 
 	// Returns the chunk changes for ONE FRAME
-	ChunkChanges Update(const glm::vec3& pos);
+	ChunkChanges Update(const glm::vec3& pos, ThreadPool& thread_pool);
 
 	const MapType& GetChunks() const { return m_chunks; }
 
 private:
+	bool ChunkColInBounds(const glm::ivec2& chunk_col_pos, const glm::ivec2& center_col_pos);
 	void UnloadFarChunks(const glm::ivec3& center, ChunkChanges& changes);
 	void RebuildPending(const glm::ivec3& center);
-	void GeneratePending(ChunkChanges& changes);
 
 	MapType m_chunks;
 	std::optional<glm::ivec3> m_center;
@@ -61,6 +65,22 @@ private:
 
 	// Queue for loading chunks
 	std::vector<glm::ivec2> m_pending;
+
+	// Multithreading generation for pending chunks
+	void GeneratePending(ThreadPool& thread_pool);
+
+	using ChunkCol = std::array<std::unique_ptr<Chunk>, COL_CHUNKS_CNT>;
+
+	struct InFlightChunkCol {
+		InFlightChunkCol(const glm::ivec2& col, std::future<ChunkCol> chunks)
+			: m_col(col), m_chunks(std::move(chunks)) {}
+
+		glm::ivec2 m_col;
+		std::future<ChunkCol> m_chunks;
+	};
+
+	std::vector<InFlightChunkCol> m_in_flight_chunk_cols;
+	std::unordered_set<glm::ivec2> m_chunk_col_in_flight;
 };
 
 }

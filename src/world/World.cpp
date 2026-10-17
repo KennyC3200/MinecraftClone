@@ -49,7 +49,15 @@ void World::SetBlock(const glm::ivec3& world_pos, BlockId id) {
 	chunk->SetBlock(local_pos, id);
 }
 
-ChunkChanges World::Update(const glm::vec3& pos) {
+bool World::ChunkColInBounds(const glm::ivec2& chunk_col_pos, const glm::ivec2& center_col_pos) {
+	int dist = std::max(
+		std::abs(chunk_col_pos.x - center_col_pos.x), 
+		std::abs(chunk_col_pos.y - center_col_pos.y));
+
+	return (dist <= m_render_dist + 1);
+}
+
+ChunkChanges World::Update(const glm::vec3& pos, ThreadPool& thread_pool) {
 	glm::ivec3 center = glm::floor(pos / float(Chunk::SIZE));
 	center.y = MIN_CHUNK_Y; // Only the x and z coordinates matter
 
@@ -62,7 +70,35 @@ ChunkChanges World::Update(const glm::vec3& pos) {
 		RebuildPending(center);
 	}
 
-	GeneratePending(changes);
+	// Generate pending tasks (this is multithreaded)
+	GeneratePending(thread_pool);
+
+	// Append the changes
+	for (auto it = m_in_flight_chunk_cols.begin(); it != m_in_flight_chunk_cols.end();) {
+		if (it->m_chunks.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+			it++;
+			continue;
+		}
+
+		// Insert them into m_chunks and add to changes.m_loaded
+		ChunkCol chunks = it->m_chunks.get();
+
+		// Remove the chunk column from the hashset of in flight
+		m_chunk_col_in_flight.erase(it->m_col);
+
+		// If the chunk is in bounds, add the chunk data to changes
+		// Otherwise, if the chunk is out of bounds by the time it is loaded, don't
+		if (ChunkColInBounds(it->m_col, { center.x, center.z })) {
+			for (int y = MIN_CHUNK_Y; y < MAX_CHUNK_Y; y++) {
+				glm::ivec3 chunk_pos(it->m_col.x, y, it->m_col.y);
+				m_chunks[chunk_pos] = std::move(chunks[y - MIN_CHUNK_Y]);
+				changes.m_loaded.push_back(chunk_pos);
+			}
+		}
+
+		// Then, erase it from m_in_flight_chunk_cols
+		it = m_in_flight_chunk_cols.erase(it);
+	}
 
 	return changes;
 }
@@ -72,9 +108,8 @@ void World::UnloadFarChunks(const glm::ivec3& center, ChunkChanges& changes) {
 	// Find chunks that need to be unloaded. These are chunks that are beyond R + 1 in x and z dirs
 	for (auto it = m_chunks.begin(); it != m_chunks.end();) {
 		const glm::ivec3& chunk_pos = it->first;
-		int dist = std::max(std::abs(chunk_pos.x - center.x), std::abs(chunk_pos.z - center.z));
-
-		if (dist > m_render_dist + 1) {
+		const glm::ivec2 col = { chunk_pos.x, chunk_pos.z };
+		if (!ChunkColInBounds(col, { center.x, center.z })) {
 			changes.m_unloaded.push_back(chunk_pos);
 			it = m_chunks.erase(it);
 		} else {
@@ -92,7 +127,10 @@ void World::RebuildPending(const glm::ivec3& center) {
 	for (int x = -m_render_dist; x <= m_render_dist; x++) {
 		for (int z = -m_render_dist; z <= m_render_dist; z++) {
 			glm::ivec2 col = { center.x + x, center.z + z };
-			if (!m_chunks.contains({ col.x, MIN_CHUNK_Y, col.y })) {
+			if (
+				!m_chunk_col_in_flight.contains(col) && 
+				!m_chunks.contains({ col.x, MIN_CHUNK_Y, col.y})) 
+			{
 				m_pending.push_back(col);
 			}
 		}
@@ -113,16 +151,25 @@ void World::RebuildPending(const glm::ivec3& center) {
 	);
 }
 
-void World::GeneratePending(ChunkChanges& changes) {
-	// Load data for 4 columns per frame
-	for (int i = 0; i < 4 && !m_pending.empty(); i++) {
+void World::GeneratePending(ThreadPool& thread_pool) {
+	const std::size_t max_in_flight = 2 * thread_pool.Size();
+
+	// Create a task for the generation of each column
+	while (m_chunk_col_in_flight.size() < max_in_flight && !m_pending.empty()) {
 		glm::ivec2 col = m_pending.back(); 
 		m_pending.pop_back();
-		for (int y = MIN_CHUNK_Y; y < MAX_CHUNK_Y; y++) {
-			glm::ivec3 chunk_pos = { col.x, y, col.y };
-			m_chunks[chunk_pos] = GenerateChunk(chunk_pos);
-			changes.m_loaded.push_back(chunk_pos);
-		}
+		m_chunk_col_in_flight.insert(col);
+
+		// Task to generate a column
+		m_in_flight_chunk_cols.emplace_back(col, thread_pool.Submit([col] {
+			ChunkCol chunks;
+			for (int y = MIN_CHUNK_Y; y < MAX_CHUNK_Y; y++) {
+				glm::ivec3 chunk_pos = { col.x, y, col.y };
+				chunks[y - MIN_CHUNK_Y] = GenerateChunk(chunk_pos);
+			}
+
+			return chunks;
+		}));
 	}
 }
 

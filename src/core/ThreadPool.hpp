@@ -16,6 +16,8 @@ public:
 	explicit ThreadPool(std::size_t n);
 	~ThreadPool();
 
+	std::size_t Size() const { return m_workers.size(); }
+
 	template <class FunctionType>
 	auto Submit (FunctionType f) -> std::future<decltype(f())>;
 

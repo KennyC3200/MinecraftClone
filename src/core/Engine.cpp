@@ -23,9 +23,10 @@ glm::vec3 InitialWorldPos() {
 }
 
 Engine::Engine()
-    : m_window(1920, 1080)
+    : m_window(1280, 720)
 	, m_world(m_flags.m_render_distance)
 	, m_cam(InitialWorldPos())
+	, m_thread_pool(m_thread_hc > 2 ? m_thread_hc - 2 : 1)
 {
 	// Depth
 	glEnable(GL_DEPTH_TEST);
@@ -146,7 +147,7 @@ void Engine::Update() {
 	}
 
 	// World
-	ChunkChanges changes = m_world.Update(m_cam.Pos());
+	ChunkChanges changes = m_world.Update(m_cam.Pos(), m_thread_pool);
 	m_world_renderer.Update(m_world, changes);
 }
 
