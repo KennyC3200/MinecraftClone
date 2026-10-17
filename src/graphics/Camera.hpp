@@ -12,6 +12,7 @@ public:
 
 	void Rotate(float d_yaw, float d_pitch);
 	void Move(const glm::vec3& offset);
+	void SetPos(const glm::vec3& pos) { m_pos = pos; }
 
 	glm::vec3 Pos() const { return m_pos; }
 	glm::mat4 ViewMat() const;
@@ -25,7 +26,7 @@ private:
 	glm::vec3 m_up{0.0f, 1.0f,  0.0f};
 	float m_yaw = -90.0f;
 	float m_pitch = 0.0f;
-	float m_fov = 45.0f;
+	float m_fov = 80.0f;
 };
 
 }

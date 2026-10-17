@@ -29,7 +29,7 @@ glm::mat4 Camera::ViewMat() const {
 }
 
 glm::mat4 Camera::ProjMat(float aspect, float far_z) const {
-	return glm::perspective(glm::radians(45.0f), aspect, 0.1f, far_z); 
+	return glm::perspective(glm::radians(m_fov), aspect, 0.1f, far_z); 
 }
 
 }

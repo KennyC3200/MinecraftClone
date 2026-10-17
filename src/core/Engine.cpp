@@ -16,8 +16,9 @@ using ms = std::chrono::duration<double, std::milli>;
 
 namespace {
 
-glm::vec3 InitialWorldPos() {
-	return glm::vec3(0, SurfaceHeight(0, 0) + 3, 0);
+// Standing on the surface block at the middle of block (0, 0)
+glm::dvec3 SpawnFeetPos() {
+	return glm::dvec3(0.5, SurfaceHeight(0, 0) + 1, 0.5);
 }
 
 }
@@ -26,7 +27,8 @@ Engine::Engine()
     : m_window(1280, 720)
 	, m_hud(m_window.Handle())
 	, m_world(m_flags.m_render_distance)
-	, m_cam(InitialWorldPos())
+	, m_player(SpawnFeetPos())
+	, m_cam(m_player.EyePos())
 	, m_thread_pool(4)
 {
 	// Depth
@@ -101,32 +103,9 @@ void Engine::Update() {
 	m_delta_time = current_frame - m_last_frame;
 	m_last_frame = current_frame;
 
-	m_cam_speed = 100.0f * m_delta_time;
-
 	// Closing the application
 	if (m_input.IsKeyDown(GLFW_KEY_Q)) {
 		glfwSetWindowShouldClose(m_window.Handle(), true);
-	}
-
-	// Movement
-	glm::vec3 front = m_cam.Front();
-	if (m_input.IsKeyDown(GLFW_KEY_W)) {
-		m_cam.Move(m_cam_speed * glm::vec3(front.x, 0, front.z));
-	}
-	if (m_input.IsKeyDown(GLFW_KEY_S)) {
-		m_cam.Move(-m_cam_speed * glm::vec3(front.x, 0, front.z));
-	}
-	if (m_input.IsKeyDown(GLFW_KEY_A)) {
-		m_cam.Move(-m_cam_speed * m_cam.Right());
-	}
-	if (m_input.IsKeyDown(GLFW_KEY_D)) {
-		m_cam.Move(m_cam_speed * m_cam.Right());
-	}
-	if (m_input.IsKeyDown(GLFW_KEY_SPACE)) {
-		m_cam.Move(m_cam_speed * DirVec(Dir::Up));
-	}
-	if (m_input.IsKeyDown(GLFW_KEY_LEFT_SHIFT)) {
-		m_cam.Move(m_cam_speed * DirVec(Dir::Down));
 	}
 
 	// Toggle/untoggle cursor
@@ -164,6 +143,13 @@ void Engine::Update() {
 		m_input.SetFirstMouse(true);
 	}
 
+	// Player. Done after the camera turns, so WASD follows where the camera faces this frame
+	if (m_input.IsKeyPressed(GLFW_KEY_F)) {
+		m_player.ToggleFlying();
+	}
+	m_player.Update(m_world, ReadPlayerInput(), m_delta_time);
+	m_cam.SetPos(m_player.EyePos());
+
 	// Breaking and placing, only while playing (not while the cursor is free)
 	// Done before the world update, so the edited chunks are queued for meshing this frame
 	if (m_window.IsCursorCaptured()) {
@@ -175,6 +161,35 @@ void Engine::Update() {
 	bool generate = !m_world_renderer.IsBacklogged();
 	ChunkChanges changes = m_world.Update(m_cam.Pos(), m_thread_pool, generate);
 	m_world_renderer.Update(m_world, changes, m_thread_pool);
+}
+
+PlayerInput Engine::ReadPlayerInput() const {
+	PlayerInput input;
+
+	// No movement while the cursor is free (e.g. while using the debug overlay)
+	if (!m_window.IsCursorCaptured()) return input;
+
+	// WASD relative to where the camera faces, flattened onto the ground. The pitch clamp keeps
+	// the camera from looking straight up or down, so forward never has zero length
+	glm::vec3 front = m_cam.Front();
+	glm::vec3 forward = glm::normalize(glm::vec3(front.x, 0.0f, front.z));
+	glm::vec3 right = m_cam.Right();
+
+	glm::vec3 move(0.0f);
+	if (m_input.IsKeyDown(GLFW_KEY_W)) move += forward;
+	if (m_input.IsKeyDown(GLFW_KEY_S)) move -= forward;
+	if (m_input.IsKeyDown(GLFW_KEY_D)) move += right;
+	if (m_input.IsKeyDown(GLFW_KEY_A)) move -= right;
+
+	// Normalised so walking diagonally isn't faster
+	if (glm::length(move) > 0.0f) {
+		input.m_move = glm::normalize(move);
+	}
+
+	input.m_jump = m_input.IsKeyDown(GLFW_KEY_SPACE);
+	input.m_descend = m_input.IsKeyDown(GLFW_KEY_LEFT_SHIFT);
+	input.m_sprint = m_input.IsKeyDown(GLFW_KEY_LEFT_CONTROL);
+	return input;
 }
 
 void Engine::InteractWithBlocks() {
@@ -195,9 +210,9 @@ void Engine::InteractWithBlocks() {
 	BlockId place_block_id = m_hotbar.SelectedBlock();
 	if (place_block_id == BlockId::Air) return;
 
-	// Place against the face that was hit, but not in the block the camera is in
+	// Place against the face that was hit, but not where it would overlap the player
 	glm::ivec3 place_pos = hit->m_block_pos + hit->m_normal;
-	if (place_pos == glm::ivec3(glm::floor(m_cam.Pos()))) return;
+	if (AABB::Block(place_pos).Intersects(m_player.Box())) return;
 
 	// Outside the loaded chunks (e.g. above the top of the world), SetBlock does nothing
 	if (!m_world.GetChunk(place_pos >> 4)) return;

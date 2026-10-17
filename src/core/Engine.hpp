@@ -8,6 +8,7 @@
 #include "world/WorldRenderer.hpp"
 #include "core/ThreadPool.hpp"
 #include "game/Hotbar.hpp"
+#include "game/Player.hpp"
 #include "ui/Hud.hpp"
 
 namespace mcc {
@@ -20,6 +21,7 @@ public:
 private:
     void Poll();
     void Update();
+	PlayerInput ReadPlayerInput() const;
 	void InteractWithBlocks();
     void Render();
     void SwapBuffers();
@@ -41,8 +43,9 @@ private:
 
 	Input m_input;
 
+	// The camera sits at the player's eyes, so the player is constructed first
+	Player m_player;
 	Camera m_cam;
-	float m_cam_speed = 0.0f;
 
 	// How far away (in blocks) a block can be broken or placed
 	static constexpr float BLOCK_REACH = 10.0f;
