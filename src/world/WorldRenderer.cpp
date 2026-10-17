@@ -2,13 +2,98 @@
 #include "ChunkMesher.hpp"
 #include "graphics/Frustum.hpp"
 
-#include <unordered_set>
+#include <algorithm>
+#include <array>
 #include <chrono>
+#include <iomanip>
+#include <iostream>
+#include <unordered_set>
 
 namespace mcc {
 
 using Clock = std::chrono::steady_clock;
 using ms = std::chrono::duration<double, std::milli>;
+
+namespace {
+
+// Debug timing for WorldRenderer::Update. Every phase is timed each frame, and once per second the
+// average and worst time of each phase over that second is printed. Set to false to turn it off
+constexpr bool PROFILE_UPDATE = true;
+
+enum class Phase : std::size_t { Unload, MarkDirty, Collect, Sort, Submit, Upload, Count };
+
+constexpr std::size_t PHASE_CNT = static_cast<std::size_t>(Phase::Count);
+constexpr std::array<const char*, PHASE_CNT> PHASE_NAMES = {
+	"unload", "mark dirty", "collect ready", "sort ready", "submit jobs", "upload"
+};
+
+class UpdateProfiler final {
+public:
+	// Call at the start of Update
+	void Begin() { m_last = Clock::now(); }
+
+	// Call at the end of each phase. Times the phase since the previous Lap() or Begin()
+	void Lap(Phase phase) {
+		Clock::time_point now = Clock::now();
+		m_frame[static_cast<std::size_t>(phase)] = ms(now - m_last).count();
+		m_last = now;
+	}
+
+	// Call at the end of Update. Prints and resets once the window has run for a second
+	void End(std::size_t dirty_cnt, std::size_t ready_cnt, std::size_t in_flight_cnt) {
+		if (!PROFILE_UPDATE) return;
+
+		double total = 0.0;
+		for (std::size_t i = 0; i < PHASE_CNT; i++) {
+			m_sum[i] += m_frame[i];
+			m_max[i] = std::max(m_max[i], m_frame[i]);
+			total += m_frame[i];
+		}
+		m_total_sum += total;
+		m_total_max = std::max(m_total_max, total);
+		m_ready_max = std::max(m_ready_max, ready_cnt);
+		m_frames++;
+
+		if (Clock::now() - m_window_start < std::chrono::seconds(1)) return;
+
+		Print(dirty_cnt, in_flight_cnt);
+		*this = UpdateProfiler();
+	}
+
+private:
+	void Print(std::size_t dirty_cnt, std::size_t in_flight_cnt) const {
+		auto row = [&](const char* name, double sum, double max) {
+			std::cout << "  " << std::left << std::setw(14) << name << std::right
+				<< std::setw(9) << sum / m_frames << std::setw(9) << max << '\n';
+		};
+
+		std::cout << std::fixed << std::setprecision(3)
+			<< "[WorldRenderer::Update] " << m_frames << " frames | dirty " << dirty_cnt
+			<< " | ready max " << m_ready_max << " | in flight " << in_flight_cnt << '\n'
+			<< "  " << std::left << std::setw(14) << "phase" << std::right
+			<< std::setw(9) << "avg ms" << std::setw(9) << "max ms" << '\n';
+
+		for (std::size_t i = 0; i < PHASE_CNT; i++) {
+			row(PHASE_NAMES[i], m_sum[i], m_max[i]);
+		}
+		row("total", m_total_sum, m_total_max);
+
+		std::cout.flush();
+	}
+
+	Clock::time_point m_window_start = Clock::now();
+	Clock::time_point m_last;
+
+	std::array<double, PHASE_CNT> m_frame{};
+	std::array<double, PHASE_CNT> m_sum{};
+	std::array<double, PHASE_CNT> m_max{};
+	double m_total_sum = 0.0;
+	double m_total_max = 0.0;
+	std::size_t m_ready_max = 0;
+	std::size_t m_frames = 0;
+};
+
+}
 
 WorldRenderer::WorldRenderer() 
 	: m_shader("assets/shaders/chunk.vert", "assets/shaders/chunk.frag")
@@ -36,11 +121,15 @@ void WorldRenderer::Update(
 	const ChunkChanges& changes, 
 	ThreadPool& thread_pool)
 {
+	static UpdateProfiler profiler;
+	profiler.Begin();
+
 	// Erase the unloaded chunks from the meshes
 	for (const glm::ivec3& pos : changes.m_unloaded) {
 		m_chunk_meshes.erase(pos);
 		m_dirty.erase(pos);
 	}
+	profiler.Lap(Phase::Unload);
 
 	// Add the chunks to be loaded to the set
 	for (const glm::ivec3& pos : changes.m_loaded) {
@@ -52,6 +141,7 @@ void WorldRenderer::Update(
 			}
 		}
 	}
+	profiler.Lap(Phase::MarkDirty);
 
 	// Collect dirty chunks whose neighbours are ready
 	glm::ivec3 center = world.GetCenter();
@@ -68,10 +158,13 @@ void WorldRenderer::Update(
 			ready.push_back(pos);
 		}
 	}
+	profiler.Lap(Phase::Collect);
+
 	std::sort(ready.begin(), ready.end(), [&](const glm::ivec3& a, const glm::ivec3& b) {
 			return dist_squared(a) < dist_squared(b);
 		}
 	);
+	profiler.Lap(Phase::Sort);
 
 	std::size_t max_in_flights = thread_pool.Size() * 2;
 	auto start = Clock::now();
@@ -82,6 +175,7 @@ void WorldRenderer::Update(
 		MeshChunk(world, pos, thread_pool);
 		m_dirty.erase(pos);
 	}
+	profiler.Lap(Phase::Submit);
 
 	int uploads = 0;
 
@@ -111,6 +205,9 @@ void WorldRenderer::Update(
 		// Erase it from the vector
 		it = m_in_flight_jobs.erase(it);
 	}
+	profiler.Lap(Phase::Upload);
+
+	profiler.End(m_dirty.size(), ready.size(), m_in_flight_jobs.size());
 }
 
 void WorldRenderer::RenderWorld(

@@ -43,7 +43,6 @@ private:
 	float m_last_frame = 0.0f;
 
 	// ThreadPool needs to be destroyed first
-	unsigned m_thread_hc = std::thread::hardware_concurrency();
 	ThreadPool m_thread_pool;
 };
 

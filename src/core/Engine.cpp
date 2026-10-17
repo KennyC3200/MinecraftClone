@@ -25,7 +25,7 @@ Engine::Engine()
     : m_window(1280, 720)
 	, m_world(m_flags.m_render_distance)
 	, m_cam(InitialWorldPos())
-	, m_thread_pool(m_thread_hc > 2 ? m_thread_hc - 2 : 1)
+	, m_thread_pool(4)
 {
 	// Depth
 	glEnable(GL_DEPTH_TEST);
