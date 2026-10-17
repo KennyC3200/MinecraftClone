@@ -70,6 +70,7 @@ const char* TypeName(GLenum type) {
 }
 
 void EnableGLDebugOutput() {
+#ifdef NDEBUG
 	if (GLAD_GL_KHR_debug) {
 		glEnable(GL_DEBUG_OUTPUT);
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -79,6 +80,7 @@ void EnableGLDebugOutput() {
 		glDebugMessageControl(
 			GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, GL_FALSE);
 	}
+#endif
 }
 
 void APIENTRY OnGLDebugMessage(

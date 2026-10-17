@@ -26,6 +26,10 @@ public:
 	bool IsCursorCaptured() const { return m_cursor_captured; }
 
 private:
+	struct {
+		int m_vsync = 1;
+	} m_flags;
+
     GLFWwindow* m_handle = nullptr;
     int m_width = 0;
     int m_height = 0;

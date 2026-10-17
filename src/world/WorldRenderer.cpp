@@ -34,7 +34,7 @@ const Mesh* WorldRenderer::GetChunkMesh(const glm::ivec3& chunk_pos) const {
 void WorldRenderer::Update(
 	const World& world, 
 	const ChunkChanges& changes, 
-	ThreadPool& thread_pool) 
+	ThreadPool& thread_pool)
 {
 	// Erase the unloaded chunks from the meshes
 	for (const glm::ivec3& pos : changes.m_unloaded) {

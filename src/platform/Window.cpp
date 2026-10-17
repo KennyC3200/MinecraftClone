@@ -40,7 +40,7 @@ Window::Window(int width, int height)
     }
 
     glfwMakeContextCurrent(m_handle);
-    glfwSwapInterval(0);
+    glfwSwapInterval(m_flags.m_vsync);
 
     if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress))) {
         glfwDestroyWindow(m_handle);

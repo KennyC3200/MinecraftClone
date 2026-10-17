@@ -7,7 +7,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <chrono>
-#include <iostream>
 
 namespace mcc {
 
@@ -69,13 +68,10 @@ Engine::Engine()
 
 void Engine::Run() {
     while (!glfwWindowShouldClose(m_window.Handle())) {
-		auto t0 = Clock::now();
         Poll();
         Update();
         Render();
         SwapBuffers();
-		auto t1 = Clock::now();
-		std::cout << ms(t1 - t0).count() << "ms\n";
     }
 
 	// Hide the window while underlying resources are being freed

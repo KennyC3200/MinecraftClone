@@ -41,7 +41,7 @@ private:
 
 	std::unordered_set<glm::ivec3> m_dirty;
 	static constexpr double MESH_FRAMETIME_MS = 4.0;
-	static constexpr int MAX_UPLOADS_PER_FRAME = 4;
+	static constexpr int MAX_UPLOADS_PER_FRAME = 8;
 
 	// Store the mesh data once the threads are done
 	struct InFlightMeshData {
