@@ -1,6 +1,8 @@
 # Minecraft Clone
 A Minecraft clone voxel game that is written in c++20 and uses OpenGL 4.1 core. It runs on both Windows and macOS.
 
+<iframe width="560" height="315" src="https://www.youtube.com/watch?v=ozWmLvxRoog" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
 ## Features
 - Infinite procedural terrain generation from a 4-octave fractal Perlin noise
 - 32 chunk render distance by default at stable 120 FPS+ at 1080p on Intel Core Ultra 165h
