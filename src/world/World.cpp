@@ -58,7 +58,7 @@ bool World::ChunkColInBounds(const glm::ivec2& chunk_col_pos) const
 	return (dist <= m_render_dist + 1);
 }
 
-ChunkChanges World::Update(const glm::vec3& pos, ThreadPool& thread_pool) {
+ChunkChanges World::Update(const glm::vec3& pos, ThreadPool& thread_pool, bool generate) {
 	glm::ivec3 center = glm::floor(pos / float(Chunk::SIZE));
 	center.y = MIN_CHUNK_Y; // Only the x and z coordinates matter
 
@@ -66,13 +66,17 @@ ChunkChanges World::Update(const glm::vec3& pos, ThreadPool& thread_pool) {
 
 	// On world startup or the player has moved between chunks
 	if (!m_center || *m_center != center) {
+		std::optional<glm::ivec3> old_center = m_center;
 		m_center = center;
-		UnloadFarChunks(changes);
+		changes.m_center_moved = true;
+
+		// On startup nothing is loaded yet, so there is nothing to unload
+		if (old_center) UnloadFarChunks(*old_center, changes);
 		RebuildPending();
 	}
 
 	// Generate pending tasks (multithreaded)
-	GeneratePending(thread_pool);
+	if (generate) GeneratePending(thread_pool);
 
 	// Append the changes
 	for (auto it = m_in_flight_jobs.begin(); it != m_in_flight_jobs.end();) {
@@ -104,17 +108,23 @@ ChunkChanges World::Update(const glm::vec3& pos, ThreadPool& thread_pool) {
 	return changes;
 }
 
-void World::UnloadFarChunks(ChunkChanges& changes) {
+void World::UnloadFarChunks(const glm::ivec3& old_center, ChunkChanges& changes) {
 	// For render distance R:
-	// Find chunks that need to be unloaded. These are chunks that are beyond R + 1 in x and z dirs
-	for (auto it = m_chunks.begin(); it != m_chunks.end();) {
-		const glm::ivec3& chunk_pos = it->first;
-		const glm::ivec2 col = { chunk_pos.x, chunk_pos.z };
-		if (!ChunkColInBounds(col)) {
-			changes.m_unloaded.push_back(chunk_pos);
-			it = m_chunks.erase(it);
-		} else {
-			it++;
+	// Unload chunks that are beyond R + 1 in x and z dirs of the new center.
+	// Every loaded column was within R + 1 of the old center, so only columns in that old square can
+	// have left the bounds. Checking them is just integer math, and only the ones that left need
+	// hashmap lookups, instead of visiting every loaded chunk
+	int bound = m_render_dist + 1;
+	for (int x = old_center.x - bound; x <= old_center.x + bound; x++) {
+		for (int z = old_center.z - bound; z <= old_center.z + bound; z++) {
+			if (ChunkColInBounds({ x, z })) continue;
+
+			for (int y = MIN_CHUNK_Y; y < MAX_CHUNK_Y; y++) {
+				glm::ivec3 chunk_pos(x, y, z);
+				if (m_chunks.erase(chunk_pos)) {
+					changes.m_unloaded.push_back(chunk_pos);
+				}
+			}
 		}
 	}
 }

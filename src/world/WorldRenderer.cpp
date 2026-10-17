@@ -20,11 +20,11 @@ namespace {
 // average and worst time of each phase over that second is printed. Set to false to turn it off
 constexpr bool PROFILE_UPDATE = true;
 
-enum class Phase : std::size_t { Unload, MarkDirty, Collect, Sort, Submit, Upload, Count };
+enum class Phase : std::size_t { Unload, MarkDirty, Collect, Submit, Upload, Count };
 
 constexpr std::size_t PHASE_CNT = static_cast<std::size_t>(Phase::Count);
 constexpr std::array<const char*, PHASE_CNT> PHASE_NAMES = {
-	"unload", "mark dirty", "collect ready", "sort ready", "submit jobs", "upload"
+	"unload", "mark dirty", "collect ready", "submit jobs", "upload"
 };
 
 class UpdateProfiler final {
@@ -121,13 +121,37 @@ void WorldRenderer::Update(
 	const ChunkChanges& changes, 
 	ThreadPool& thread_pool)
 {
+	// Lambda for calculating the distance squared
+	glm::ivec3 center = world.GetCenter();
+	auto dist_squared = [&](const glm::ivec3& p) {
+		int dx = p.x - center.x;
+		int dz = p.z - center.z;
+		return dx * dx + dz * dz;
+	};
+
+	// Lambda for trying to add itself and neighbours
+	auto try_queue = [&](const glm::ivec3& pos) {
+		if (m_dirty.contains(pos) && NeighboursReady(world, pos)) {
+			m_ready.emplace(dist_squared(pos), pos);
+		}
+	};
+
 	static UpdateProfiler profiler;
 	profiler.Begin();
 
-	// Erase the unloaded chunks from the meshes
+	// Erase the unloaded chunks from the meshes, keeping their meshes as spares for new chunks
 	for (const glm::ivec3& pos : changes.m_unloaded) {
-		m_chunk_meshes.erase(pos);
+		ReleaseMesh(pos);
 		m_dirty.erase(pos);
+	}
+
+	// Delete the spares beyond the limit, but only a few per frame since each is 3 GL deletes
+	for (
+		std::size_t i = 0; 
+		i < MAX_MESH_DELETES_PER_FRAME && m_spare_meshes.size() > MAX_SPARE_MESHES; 
+		i++) 
+	{
+		m_spare_meshes.pop_back();
 	}
 	profiler.Lap(Phase::Unload);
 
@@ -143,37 +167,44 @@ void WorldRenderer::Update(
 	}
 	profiler.Lap(Phase::MarkDirty);
 
-	// Collect dirty chunks whose neighbours are ready
-	glm::ivec3 center = world.GetCenter();
-	auto dist_squared = [&](const glm::ivec3& p) {
-		int dx = p.x - center.x;
-		int dz = p.z - center.z;
-		return dx * dx + dz * dz;
-	};
-
-	// Sort the dirty chunks to be nearest first in the queue
-	std::vector<glm::ivec3> ready;
-	for (const glm::ivec3& pos : m_dirty) {
-		if (!m_in_flight_positions.contains(pos) && NeighboursReady(world, pos)) {
-			ready.push_back(pos);
+	if (changes.m_center_moved) {
+		// The heap stored distances are out of date, hence need to rebuild/re-sort the heap
+		std::vector<ReadyChunk> ready_chunks;
+		for (const glm::ivec3& pos : m_dirty) {
+			if (NeighboursReady(world, pos)) {
+				ready_chunks.emplace_back(dist_squared(pos), pos);
+			}
+		}
+		m_ready = decltype(m_ready)(ReadyChunkFarther{}, std::move(ready_chunks));
+	} else {
+		// Only a loaded chunk and its 4 neighbours can have become ready
+		for (const glm::ivec3& pos : changes.m_loaded) {
+			try_queue(pos);
+			try_queue(pos + glm::ivec3(DirVec(Dir::North)));
+			try_queue(pos + glm::ivec3(DirVec(Dir::South)));
+			try_queue(pos + glm::ivec3(DirVec(Dir::East)));
+			try_queue(pos + glm::ivec3(DirVec(Dir::West)));
 		}
 	}
 	profiler.Lap(Phase::Collect);
 
-	std::sort(ready.begin(), ready.end(), [&](const glm::ivec3& a, const glm::ivec3& b) {
-			return dist_squared(a) < dist_squared(b);
-		}
-	);
-	profiler.Lap(Phase::Sort);
-
 	std::size_t max_in_flights = thread_pool.Size() * 2;
 	auto start = Clock::now();
-	for (const auto& pos : ready) {
+	while (!m_ready.empty()) {
 		if (ms(Clock::now() - start).count() > MESH_FRAMETIME_MS) break;
 		if (m_in_flight_positions.size() >= max_in_flights) break;
 
-		MeshChunk(world, pos, thread_pool);
-		m_dirty.erase(pos);
+		ReadyChunk ready = m_ready.top();
+		m_ready.pop();
+
+		// Already meshed, unloaded, or duplicate entry
+		if (!m_dirty.contains(ready.m_pos)) continue;
+
+		// Still being meshed
+		if (m_in_flight_positions.contains(ready.m_pos)) continue;
+
+		MeshChunk(world, ready.m_pos, thread_pool);
+		m_dirty.erase(ready.m_pos);
 	}
 	profiler.Lap(Phase::Submit);
 
@@ -194,7 +225,7 @@ void WorldRenderer::Update(
 			}
 
 			std::unique_ptr<Mesh>& mesh = m_chunk_meshes[it->m_pos];
-			if (!mesh) mesh = std::make_unique<Mesh>();
+			if (!mesh) mesh = AcquireMesh();
 			mesh->Upload(it->m_data.get());
 			uploads++;
 		}
@@ -202,12 +233,15 @@ void WorldRenderer::Update(
 		// Remove the mesh data from the hashset
 		m_in_flight_positions.erase(it->m_pos);
 
+		// In case it was re-dirtied while in flight
+		try_queue(it->m_pos);
+
 		// Erase it from the vector
 		it = m_in_flight_jobs.erase(it);
 	}
 	profiler.Lap(Phase::Upload);
 
-	profiler.End(m_dirty.size(), ready.size(), m_in_flight_jobs.size());
+	profiler.End(m_dirty.size(), m_ready.size(), m_in_flight_jobs.size());
 }
 
 void WorldRenderer::RenderWorld(
@@ -272,7 +306,7 @@ void WorldRenderer::MeshChunk(
 	}
 
 	if (center->IsEmpty() || buried) {
-		m_chunk_meshes.erase(chunk_pos);
+		ReleaseMesh(chunk_pos);
 		return;
 	}
 
@@ -303,6 +337,23 @@ void WorldRenderer::MeshChunk(
 			return BuildChunkMesh(padded_chunk);
 	}));
 	m_in_flight_positions.insert(chunk_pos);
+}
+
+void WorldRenderer::ReleaseMesh(const glm::ivec3& chunk_pos) {
+	auto it = m_chunk_meshes.find(chunk_pos);
+	if (it == m_chunk_meshes.end()) return;
+
+	// Its old buffer contents are left in place, Upload() replaces them when it is reused
+	m_spare_meshes.push_back(std::move(it->second));
+	m_chunk_meshes.erase(it);
+}
+
+std::unique_ptr<Mesh> WorldRenderer::AcquireMesh() {
+	if (m_spare_meshes.empty()) return std::make_unique<Mesh>();
+
+	std::unique_ptr<Mesh> mesh = std::move(m_spare_meshes.back());
+	m_spare_meshes.pop_back();
+	return mesh;
 }
 
 bool WorldRenderer::NeighboursReady(const World& world, const glm::ivec3& chunk_pos) const {

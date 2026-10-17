@@ -23,6 +23,7 @@ inline constexpr int COL_CHUNKS_CNT = MAX_CHUNK_Y - MIN_CHUNK_Y;
 struct ChunkChanges {
 	std::vector<glm::ivec3> m_loaded;
 	std::vector<glm::ivec3> m_unloaded;
+	bool m_center_moved = false;
 };
 
 class World final {
@@ -49,15 +50,16 @@ public:
 
 	int GetRenderDist() const { return m_render_dist; }
 
-	// Returns the chunk changes for ONE FRAME
-	ChunkChanges Update(const glm::vec3& pos, ThreadPool& thread_pool);
+	// Returns the chunk changes for ONE FRAME. When generate is false, no new columns are started,
+	// but columns already in flight still finish (used to stop running ahead of the mesher)
+	ChunkChanges Update(const glm::vec3& pos, ThreadPool& thread_pool, bool generate);
 
 	const MapType& GetChunks() const { return m_chunks; }
 
 	bool ChunkColInBounds(const glm::ivec2& chunk_col_pos) const;
 
 private:
-	void UnloadFarChunks(ChunkChanges& changes);
+	void UnloadFarChunks(const glm::ivec3& old_center, ChunkChanges& changes);
 	void RebuildPending();
 
 	MapType m_chunks;

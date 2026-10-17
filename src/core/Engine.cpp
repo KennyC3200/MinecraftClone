@@ -143,7 +143,9 @@ void Engine::Update() {
 	}
 
 	// World
-	ChunkChanges changes = m_world.Update(m_cam.Pos(), m_thread_pool);
+	// Pause generation while the renderer is behind, so World doesn't run far ahead of the mesher
+	bool generate = !m_world_renderer.IsBacklogged();
+	ChunkChanges changes = m_world.Update(m_cam.Pos(), m_thread_pool, generate);
 	m_world_renderer.Update(m_world, changes, m_thread_pool);
 }
 
