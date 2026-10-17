@@ -7,7 +7,8 @@
 #include "world/World.hpp"
 #include "world/WorldRenderer.hpp"
 #include "core/ThreadPool.hpp"
-#include "ui/DebugOverlay.hpp"
+#include "game/Hotbar.hpp"
+#include "ui/Hud.hpp"
 
 namespace mcc {
 
@@ -19,6 +20,7 @@ public:
 private:
     void Poll();
     void Update();
+	void InteractWithBlocks();
     void Render();
     void SwapBuffers();
 	void OnCursorMove(double x_pos, double y_pos);
@@ -32,7 +34,7 @@ private:
     Window m_window;
 
 	// Needs the GL context, so it comes after m_window (and is destroyed before it)
-	DebugOverlay m_debug_overlay;
+	Hud m_hud;
 
 	World m_world;
 	WorldRenderer m_world_renderer;
@@ -41,6 +43,12 @@ private:
 
 	Camera m_cam;
 	float m_cam_speed = 0.0f;
+
+	// How far away (in blocks) a block can be broken or placed
+	static constexpr float BLOCK_REACH = 10.0f;
+
+	// Which block right click places (keys 1-9 pick the slot)
+	Hotbar m_hotbar;
 
 	// Time
 	float m_delta_time = 0.0f;

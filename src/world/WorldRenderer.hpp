@@ -49,7 +49,10 @@ public:
 	void RenderWorld(const glm::mat4& model, const glm::mat4& view, const glm::mat4& proj);
 	void MeshChunk(const World& world, const glm::ivec3& chunk_pos, ThreadPool& thread_pool);
 
-	void SetDirtyChunks(const glm::ivec3 chunk_pos);
+	// Call after a block at world_pos changed. Re-meshes its chunk, plus the neighbouring chunk across
+	// each chunk face the block touches (the mesher only looks at face neighbours). These chunks
+	// jump the queue, so the edit shows up within a frame or two
+	void OnBlockChanged(const World& world, const glm::ivec3& world_pos);
 
 	// True while enough chunks are waiting to be meshed that World should pause generating more
 	bool IsBacklogged() const { return m_ready.size() >= MAX_READY_BACKLOG; }

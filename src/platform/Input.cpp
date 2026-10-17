@@ -8,10 +8,15 @@ bool ValidKeyRange(int key) {
 	return key >= 0 && key <= GLFW_KEY_LAST;
 }
 
+bool ValidMouseButtonRange(int button) {
+	return button >= 0 && button <= GLFW_MOUSE_BUTTON_LAST;
+}
+
 }
 
 void Input::BeginFrame() {
 	m_pressed.fill(false);
+	m_mouse_pressed.fill(false);
 	m_mouse_delta = {};
 }
 
@@ -32,6 +37,25 @@ bool Input::IsKeyDown(int key) const {
 
 bool Input::IsKeyPressed(int key) const {
 	return ValidKeyRange(key) && m_pressed[key];
+}
+
+void Input::OnMouseButton(int button, int action) {
+	if (!ValidMouseButtonRange(button)) return;
+	if (action == GLFW_PRESS) {
+		m_mouse_down[button] = true;
+		m_mouse_pressed[button] = true;
+	}
+	if (action == GLFW_RELEASE) {
+		m_mouse_down[button] = false;
+	}
+}
+
+bool Input::IsMouseDown(int button) const {
+	return ValidMouseButtonRange(button) && m_mouse_down[button];
+}
+
+bool Input::IsMousePressed(int button) const {
+	return ValidMouseButtonRange(button) && m_mouse_pressed[button];
 }
 
 void Input::OnCursorMove(double x, double y) {

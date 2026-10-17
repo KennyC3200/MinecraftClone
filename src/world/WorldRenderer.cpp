@@ -338,6 +338,37 @@ void WorldRenderer::MeshChunk(
 	m_in_flight_positions.insert(chunk_pos);
 }
 
+void WorldRenderer::OnBlockChanged(const World& world, const glm::ivec3& world_pos) {
+	glm::ivec3 chunk_pos = world_pos >> 4; // Equivalent to floor of divide by 16
+	glm::ivec3 local_pos = world_pos & 15; // Block position inside the chunk
+
+	auto mark = [&](const glm::ivec3& pos) {
+		if (!world.GetChunk(pos)) return;
+		m_dirty.insert(pos);
+
+		// A negative distance puts it ahead of every chunk queued by distance. If it is still in
+		// flight with the old blocks, the upload loop queues it again once that job finishes
+		if (NeighboursReady(world, pos)) {
+			m_ready.push({ -1, pos });
+		}
+	};
+
+	mark(chunk_pos);
+
+	// A block on the edge of its chunk is also a face neighbour of a block in the next chunk
+	for (int axis = 0; axis < 3; axis++) {
+		glm::ivec3 offset(0);
+		if (local_pos[axis] == 0) {
+			offset[axis] = -1;
+		} else if (local_pos[axis] == Chunk::SIZE - 1) {
+			offset[axis] = 1;
+		} else {
+			continue;
+		}
+		mark(chunk_pos + offset);
+	}
+}
+
 void WorldRenderer::ReleaseMesh(const glm::ivec3& chunk_pos) {
 	auto it = m_chunk_meshes.find(chunk_pos);
 	if (it == m_chunk_meshes.end()) return;

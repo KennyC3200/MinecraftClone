@@ -1,4 +1,5 @@
 #include "core/Engine.hpp"
+#include "game/Raycast.hpp"
 #include "world/Terrain.hpp"
 
 #include <GLFW/glfw3.h>
@@ -23,7 +24,7 @@ glm::vec3 InitialWorldPos() {
 
 Engine::Engine()
     : m_window(1280, 720)
-	, m_debug_overlay(m_window.Handle())
+	, m_hud(m_window.Handle())
 	, m_world(m_flags.m_render_distance)
 	, m_cam(InitialWorldPos())
 	, m_thread_pool(4)
@@ -66,8 +67,13 @@ Engine::Engine()
 		static_cast<Engine*>(glfwGetWindowUserPointer(window))->m_input.OnKey(key, action);
 	});
 
+	// On mouse button
+	glfwSetMouseButtonCallback(m_window.Handle(), [](GLFWwindow* window, int button, int action, int) {
+		static_cast<Engine*>(glfwGetWindowUserPointer(window))->m_input.OnMouseButton(button, action);
+	});
+
 	// Must come after the callbacks above, so ImGui chains them instead of being replaced
-	m_debug_overlay.InstallCallbacks();
+	m_hud.InstallCallbacks();
 }
 
 void Engine::Run() {
@@ -137,9 +143,16 @@ void Engine::Update() {
 		glPolygonMode(GL_FRONT_AND_BACK, m_flags.m_wireframe ? GL_LINE : GL_FILL);
 	}
 
-	// Debug overlay
+	// Debug stats
 	if (m_input.IsKeyPressed(GLFW_KEY_F3)) {
-		m_debug_overlay.ToggleVisible();
+		m_hud.ToggleDebugStats();
+	}
+
+	// Hotbar slot. GLFW_KEY_1 to GLFW_KEY_9 are consecutive, so key 1 + i picks slot i
+	for (std::size_t i = 0; i < Hotbar::SIZE; i++) {
+		if (m_input.IsKeyPressed(GLFW_KEY_1 + static_cast<int>(i))) {
+			m_hotbar.Select(i);
+		}
 	}
 
 	// Camera
@@ -151,11 +164,46 @@ void Engine::Update() {
 		m_input.SetFirstMouse(true);
 	}
 
+	// Breaking and placing, only while playing (not while the cursor is free)
+	// Done before the world update, so the edited chunks are queued for meshing this frame
+	if (m_window.IsCursorCaptured()) {
+		InteractWithBlocks();
+	}
+
 	// World
 	// Pause generation while the renderer is behind, so World doesn't run far ahead of the mesher
 	bool generate = !m_world_renderer.IsBacklogged();
 	ChunkChanges changes = m_world.Update(m_cam.Pos(), m_thread_pool, generate);
 	m_world_renderer.Update(m_world, changes, m_thread_pool);
+}
+
+void Engine::InteractWithBlocks() {
+	bool break_block = m_input.IsMousePressed(GLFW_MOUSE_BUTTON_LEFT);
+	bool place_block = m_input.IsMousePressed(GLFW_MOUSE_BUTTON_RIGHT);
+	if (!break_block && !place_block) return;
+
+	std::optional<RaycastHit> hit = Raycast(m_world, m_cam.Pos(), m_cam.Front(), BLOCK_REACH);
+	if (!hit) return;
+
+	if (break_block) {
+		m_world.SetBlock(hit->m_block_pos, BlockId::Air);
+		m_world_renderer.OnBlockChanged(m_world, hit->m_block_pos);
+		return;
+	}
+
+	// An empty hotbar slot has nothing to place
+	BlockId place_block_id = m_hotbar.SelectedBlock();
+	if (place_block_id == BlockId::Air) return;
+
+	// Place against the face that was hit, but not in the block the camera is in
+	glm::ivec3 place_pos = hit->m_block_pos + hit->m_normal;
+	if (place_pos == glm::ivec3(glm::floor(m_cam.Pos()))) return;
+
+	// Outside the loaded chunks (e.g. above the top of the world), SetBlock does nothing
+	if (!m_world.GetChunk(place_pos >> 4)) return;
+
+	m_world.SetBlock(place_pos, place_block_id);
+	m_world_renderer.OnBlockChanged(m_world, place_pos);
 }
 
 void Engine::Render() {
@@ -173,7 +221,7 @@ void Engine::Render() {
 	m_world_renderer.RenderWorld(model, view, proj);
 
 	// Drawn last so it sits on top of the world
-	m_debug_overlay.Render(m_world_renderer.Stats());
+	m_hud.Render(m_world_renderer.Stats(), m_hotbar);
 }
 
 void Engine::SwapBuffers() {
