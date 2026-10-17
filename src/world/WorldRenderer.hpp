@@ -9,12 +9,32 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/hash.hpp>
 
+#include <cstddef>
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
 #include <memory>
+#include <vector>
 
 namespace mcc {
+
+// Timing of WorldRenderer::Update, summarised over the last second. Filled in by the profiler in
+// WorldRenderer.cpp and shown by the debug overlay
+struct WorldRendererStats {
+	struct Phase {
+		const char* m_name = "";
+		double m_avg_ms = 0.0;
+		double m_max_ms = 0.0;
+	};
+
+	std::vector<Phase> m_phases;
+	Phase m_total{ "total" };
+
+	std::size_t m_frames = 0;
+	std::size_t m_dirty_cnt = 0;
+	std::size_t m_ready_max = 0;
+	std::size_t m_in_flight_cnt = 0;
+};
 
 class WorldRenderer final {
 public:
@@ -34,7 +54,12 @@ public:
 	// True while enough chunks are waiting to be meshed that World should pause generating more
 	bool IsBacklogged() const { return m_ready.size() >= MAX_READY_BACKLOG; }
 
+	// Update's timing over the last full second (empty until the first second has passed)
+	const WorldRendererStats& Stats() const { return m_stats; }
+
 private:
+	WorldRendererStats m_stats;
+
 	MapType m_chunk_meshes;
 	Shader m_shader;
 	Texture m_block_atlas;

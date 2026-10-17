@@ -6,6 +6,7 @@
 #   GLFW   - window, context and input            (downloaded at configure time)
 #   glm    - math (vectors, matrices, transforms) (downloaded at configure time)
 #   stb    - stb_image for texture loading        (downloaded at configure time)
+#   imgui  - Dear ImGui + GLFW/OpenGL3 backends   (downloaded at configure time)
 #
 # OpenGL 4.1 core is the newest version macOS supports, so it is the target
 # for both platforms.
@@ -53,12 +54,37 @@ FetchContent_Declare(stb
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 
+# --- Dear ImGui -------------------------------------------------------------
+# Like stb, imgui has no CMake project, so it is only downloaded and built below.
+FetchContent_Declare(imgui
+    URL      https://github.com/ocornut/imgui/archive/refs/tags/v1.91.9b.zip
+    URL_HASH SHA256=fd37507c8476a6d14cc7c4b352401f31bcbd0f0d995d35390811e968c466f46e
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+
 # glm 1.0.1 asks for CMake 3.6, which CMake 4.x warns about
 set(CMAKE_POLICY_VERSION_MINIMUM 3.10)
 
-FetchContent_MakeAvailable(glfw glm stb)
+FetchContent_MakeAvailable(glfw glm stb imgui)
 
 # Header-only target. Exactly one .cpp in the project must
 # #define STB_IMAGE_IMPLEMENTATION before #include <stb_image.h>.
 add_library(stb INTERFACE)
 target_include_directories(stb SYSTEM INTERFACE "${stb_SOURCE_DIR}")
+
+# Core imgui plus the GLFW (input/window) and OpenGL 3 (rendering) backends.
+# The OpenGL backend loads its own GL functions, so it does not need glad.
+add_library(imgui STATIC
+    "${imgui_SOURCE_DIR}/imgui.cpp"
+    "${imgui_SOURCE_DIR}/imgui_draw.cpp"
+    "${imgui_SOURCE_DIR}/imgui_tables.cpp"
+    "${imgui_SOURCE_DIR}/imgui_widgets.cpp"
+    "${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp"
+    "${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp"
+)
+target_include_directories(imgui SYSTEM PUBLIC
+    "${imgui_SOURCE_DIR}"
+    "${imgui_SOURCE_DIR}/backends"
+)
+target_compile_definitions(imgui PRIVATE GLFW_INCLUDE_NONE)
+target_link_libraries(imgui PUBLIC glfw OpenGL::GL)

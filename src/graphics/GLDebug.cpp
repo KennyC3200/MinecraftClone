@@ -70,7 +70,7 @@ const char* TypeName(GLenum type) {
 }
 
 void EnableGLDebugOutput() {
-#ifdef NDEBUG
+#ifndef NDEBUG
 	if (GLAD_GL_KHR_debug) {
 		glEnable(GL_DEBUG_OUTPUT);
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);

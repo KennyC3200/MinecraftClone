@@ -5,8 +5,6 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
-#include <iomanip>
-#include <iostream>
 #include <unordered_set>
 
 namespace mcc {
@@ -17,7 +15,8 @@ using ms = std::chrono::duration<double, std::milli>;
 namespace {
 
 // Debug timing for WorldRenderer::Update. Every phase is timed each frame, and once per second the
-// average and worst time of each phase over that second is printed. Set to false to turn it off
+// average and worst time of each phase over that second is published to WorldRendererStats, which
+// the debug overlay shows. Set to false to turn it off
 constexpr bool PROFILE_UPDATE = true;
 
 enum class Phase : std::size_t { Unload, MarkDirty, Collect, Submit, Upload, Count };
@@ -39,8 +38,13 @@ public:
 		m_last = now;
 	}
 
-	// Call at the end of Update. Prints and resets once the window has run for a second
-	void End(std::size_t dirty_cnt, std::size_t ready_cnt, std::size_t in_flight_cnt) {
+	// Call at the end of Update. Publishes to stats and resets once the window has run for a second
+	void End(
+		std::size_t dirty_cnt,
+		std::size_t ready_cnt,
+		std::size_t in_flight_cnt,
+		WorldRendererStats& stats)
+	{
 		if (!PROFILE_UPDATE) return;
 
 		double total = 0.0;
@@ -56,29 +60,24 @@ public:
 
 		if (Clock::now() - m_window_start < std::chrono::seconds(1)) return;
 
-		Print(dirty_cnt, in_flight_cnt);
+		Publish(dirty_cnt, in_flight_cnt, stats);
 		*this = UpdateProfiler();
 	}
 
 private:
-	void Print(std::size_t dirty_cnt, std::size_t in_flight_cnt) const {
-		auto row = [&](const char* name, double sum, double max) {
-			std::cout << "  " << std::left << std::setw(14) << name << std::right
-				<< std::setw(9) << sum / m_frames << std::setw(9) << max << '\n';
-		};
+	void Publish(std::size_t dirty_cnt, std::size_t in_flight_cnt, WorldRendererStats& stats) const {
+		double frames = static_cast<double>(m_frames);
 
-		std::cout << std::fixed << std::setprecision(3)
-			<< "[WorldRenderer::Update] " << m_frames << " frames | dirty " << dirty_cnt
-			<< " | ready max " << m_ready_max << " | in flight " << in_flight_cnt << '\n'
-			<< "  " << std::left << std::setw(14) << "phase" << std::right
-			<< std::setw(9) << "avg ms" << std::setw(9) << "max ms" << '\n';
-
+		stats.m_phases.resize(PHASE_CNT);
 		for (std::size_t i = 0; i < PHASE_CNT; i++) {
-			row(PHASE_NAMES[i], m_sum[i], m_max[i]);
+			stats.m_phases[i] = { PHASE_NAMES[i], m_sum[i] / frames, m_max[i] };
 		}
-		row("total", m_total_sum, m_total_max);
+		stats.m_total = { "total", m_total_sum / frames, m_total_max };
 
-		std::cout.flush();
+		stats.m_frames = m_frames;
+		stats.m_dirty_cnt = dirty_cnt;
+		stats.m_ready_max = m_ready_max;
+		stats.m_in_flight_cnt = in_flight_cnt;
 	}
 
 	Clock::time_point m_window_start = Clock::now();
@@ -241,7 +240,7 @@ void WorldRenderer::Update(
 	}
 	profiler.Lap(Phase::Upload);
 
-	profiler.End(m_dirty.size(), m_ready.size(), m_in_flight_jobs.size());
+	profiler.End(m_dirty.size(), m_ready.size(), m_in_flight_jobs.size(), m_stats);
 }
 
 void WorldRenderer::RenderWorld(

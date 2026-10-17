@@ -25,7 +25,7 @@ if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
 endif()
 
 # ---------------------------------------------------------------------------
-# Dependencies (OpenGL, glad, GLFW, glm, stb) - see external/CMakeLists.txt
+# Dependencies (OpenGL, glad, GLFW, glm, stb, imgui) - see external/CMakeLists.txt
 # ---------------------------------------------------------------------------
 add_subdirectory(external)
 
@@ -50,6 +50,7 @@ target_link_libraries(MinecraftClone PRIVATE
     glfw
     glm::glm
     stb
+    imgui
 )
 
 target_compile_definitions(MinecraftClone PRIVATE

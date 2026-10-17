@@ -23,6 +23,7 @@ glm::vec3 InitialWorldPos() {
 
 Engine::Engine()
     : m_window(1280, 720)
+	, m_debug_overlay(m_window.Handle())
 	, m_world(m_flags.m_render_distance)
 	, m_cam(InitialWorldPos())
 	, m_thread_pool(4)
@@ -64,6 +65,9 @@ Engine::Engine()
 	glfwSetKeyCallback(m_window.Handle(), [](GLFWwindow* window, int key, int, int action, int) {
 		static_cast<Engine*>(glfwGetWindowUserPointer(window))->m_input.OnKey(key, action);
 	});
+
+	// Must come after the callbacks above, so ImGui chains them instead of being replaced
+	m_debug_overlay.InstallCallbacks();
 }
 
 void Engine::Run() {
@@ -133,6 +137,11 @@ void Engine::Update() {
 		glPolygonMode(GL_FRONT_AND_BACK, m_flags.m_wireframe ? GL_LINE : GL_FILL);
 	}
 
+	// Debug overlay
+	if (m_input.IsKeyPressed(GLFW_KEY_F3)) {
+		m_debug_overlay.ToggleVisible();
+	}
+
 	// Camera
 	static const float sens = 0.1f;
 	if (m_window.IsCursorCaptured()) {
@@ -162,6 +171,9 @@ void Engine::Render() {
 		((m_flags.m_render_distance + 1) * Chunk::SIZE * 1.414)
 	);
 	m_world_renderer.RenderWorld(model, view, proj);
+
+	// Drawn last so it sits on top of the world
+	m_debug_overlay.Render(m_world_renderer.Stats());
 }
 
 void Engine::SwapBuffers() {

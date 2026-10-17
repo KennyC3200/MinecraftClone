@@ -7,6 +7,7 @@
 #include "world/World.hpp"
 #include "world/WorldRenderer.hpp"
 #include "core/ThreadPool.hpp"
+#include "ui/DebugOverlay.hpp"
 
 namespace mcc {
 
@@ -24,11 +25,14 @@ private:
 
 	struct {
 		bool m_wireframe = false;
-		int m_render_distance = 64;
+		int m_render_distance = 32;
 	} m_flags;
 
 	GLFWContext m_context;
     Window m_window;
+
+	// Needs the GL context, so it comes after m_window (and is destroyed before it)
+	DebugOverlay m_debug_overlay;
 
 	World m_world;
 	WorldRenderer m_world_renderer;
